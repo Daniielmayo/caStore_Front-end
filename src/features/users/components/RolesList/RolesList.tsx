@@ -1,86 +1,161 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, X } from 'lucide-react';
+import { Search, Plus, X, Shield, Lock, ShieldCheck, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import styles from './RolesList.module.css';
 import { RoleCard } from './RoleCard';
 import { Button } from '../../../../components/ui/Button';
+import { Input } from '../../../../components/ui/Input';
+import { Select } from '../../../../components/ui/Select';
 import { mockRoles } from '../../mockData';
+import { CloneRoleModal } from './CloneRoleModal';
 
 export function RolesList() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [roles, setRoles] = useState(mockRoles);
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [cloningRole, setCloningRole] = useState<any>(null);
 
-  const systemRoles = useMemo(() => roles.filter(r => r.type === 'system'), [roles]);
-  const customRoles = useMemo(() => roles.filter(r => r.type === 'custom'), [roles]);
+  const filteredRoles = useMemo(() => {
+    return mockRoles.filter(role => {
+      const matchesSearch = role.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === 'all' || role.type === typeFilter;
+      return matchesSearch && matchesType;
+    });
+  }, [searchTerm, typeFilter]);
 
-  const filteredCustomRoles = useMemo(() => {
-    return customRoles.filter(role => 
-      role.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, customRoles]);
-
-  const handleDelete = (id: string) => {
-    setRoles(prev => prev.filter(r => r.id !== id));
-  };
+  const systemRoles = filteredRoles.filter(r => r.type === 'system');
+  const customRoles = filteredRoles.filter(r => r.type === 'custom');
 
   return (
     <div className={styles.container}>
+      {/* Top Header Actions (placed correctly via PageWrapper integration) */}
       <div className={styles.topActions}>
         <Link href="/roles/new">
           <Button>
-            <Plus size={18} />
-            Crear rol
+            <Plus size={20} />
+            <span>Crear rol</span>
           </Button>
         </Link>
       </div>
 
-      <div className={styles.filterBar}>
-        <div className={styles.searchBox}>
-          <Search className={styles.searchIcon} size={18} />
-          <input 
-            type="text" 
-            placeholder="Buscar por nombre de rol..." 
-            className={styles.searchInput}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className={styles.summarySection}>
+        <div className={styles.summaryCard}>
+          <div className={clsx(styles.summaryIcon, styles.orange)}>
+            <Shield size={24} />
+          </div>
+          <div className={styles.summaryInfo}>
+            <span className={styles.summaryValue}>{mockRoles.length}</span>
+            <span className={styles.summaryLabel}>Total de roles</span>
+          </div>
         </div>
-        <div className={styles.countInfo}>
-          Total: <strong>{roles.length} roles</strong>
+
+        <div className={styles.summaryCard}>
+          <div className={clsx(styles.summaryIcon, styles.blue)}>
+            <Lock size={24} />
+            <div className={styles.tooltip}>Los roles del sistema no pueden modificarse ni eliminarse</div>
+          </div>
+          <div className={styles.summaryInfo}>
+            <span className={styles.summaryValue}>{mockRoles.filter(r => r.type === 'system').length}</span>
+            <span className={styles.summaryLabel}>Roles del sistema</span>
+          </div>
+        </div>
+
+        <div className={styles.summaryCard}>
+          <div className={clsx(styles.summaryIcon, styles.green)}>
+            <ShieldCheck size={24} />
+          </div>
+          <div className={styles.summaryInfo}>
+            <span className={styles.summaryValue}>{mockRoles.filter(r => r.type === 'custom').length}</span>
+            <span className={styles.summaryLabel}>Roles personalizados</span>
+          </div>
         </div>
       </div>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Roles del sistema</h2>
-        <div className={styles.grid}>
-          {systemRoles.map(role => (
-            <RoleCard key={role.id} role={role} onDelete={handleDelete} />
-          ))}
+      <div className={styles.filterBar}>
+        <div className={styles.searchBox}>
+          <Search size={18} className={styles.searchIcon} />
+          <input 
+            type="text" 
+            placeholder="Buscar por nombre de rol..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className={styles.searchInput}
+          />
         </div>
-      </section>
 
-      <div className={styles.separator} />
-
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Roles personalizados</h2>
+        <div className={styles.filters}>
+          <Select 
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className={styles.typeSelect}
+          >
+            <option value="all">Todos los tipos</option>
+            <option value="system">Del sistema</option>
+            <option value="custom">Personalizados</option>
+          </Select>
         </div>
-        
-        {filteredCustomRoles.length === 0 ? (
-          <div className={styles.emptyState}>
-            <p>{searchTerm ? 'No se encontraron roles personalizados con ese nombre' : 'Aún no has creado roles personalizados'}</p>
-            {!searchTerm && <small>Puedes clonar un rol del sistema para comenzar.</small>}
-          </div>
-        ) : (
-          <div className={styles.grid}>
-            {filteredCustomRoles.map(role => (
-              <RoleCard key={role.id} role={role} onDelete={handleDelete} />
-            ))}
+      </div>
+
+      <div className={styles.rolesGridSection}>
+        {systemRoles.length > 0 && (
+          <div className={styles.groupContainer}>
+            <div className={styles.groupHeader}>
+              <h2 className={styles.groupTitle}>Roles del sistema</h2>
+              <div className={styles.groupLine} />
+            </div>
+            <div className={styles.grid}>
+              {systemRoles.map(role => (
+                <RoleCard 
+                  key={role.id} 
+                  role={role} 
+                  onDelete={() => {}} 
+                  onClone={(r) => setCloningRole(r)}
+                />
+              ))}
+            </div>
           </div>
         )}
-      </section>
+
+        {customRoles.length > 0 && (
+          <div className={styles.groupContainer}>
+            <div className={styles.groupHeader}>
+              <h2 className={styles.groupTitle}>Roles personalizados</h2>
+              <div className={styles.groupLine} />
+            </div>
+            <div className={styles.grid}>
+              {customRoles.map(role => (
+                <RoleCard 
+                  key={role.id} 
+                  role={role} 
+                  onDelete={(id) => console.log('Delete', id)} 
+                  onClone={(r) => setCloningRole(r)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {filteredRoles.length === 0 && (
+          <div className={styles.emptyState}>
+            <AlertCircle size={48} />
+            <h3>No se encontraron roles</h3>
+            <p>Ajusta los filtros para ver otros resultados.</p>
+          </div>
+        )}
+      </div>
+
+      {cloningRole && (
+        <CloneRoleModal 
+          role={cloningRole} 
+          onClose={() => setCloningRole(null)} 
+        />
+      )}
     </div>
   );
+}
+
+// Helper for clsx style usage in this file
+function clsx(...args: any[]) {
+  return args.filter(Boolean).join(' ');
 }

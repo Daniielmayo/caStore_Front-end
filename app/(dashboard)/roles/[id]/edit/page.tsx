@@ -1,9 +1,9 @@
-import { RoleDetail } from "@/src/features/users/components/RoleDetail/RoleDetail";
+import { RoleForm } from "@/src/features/users/components/RoleForm/RoleForm";
 import { PageWrapper } from "@/src/components/layout/PageWrapper";
 import { mockRoles } from "@/src/features/users/mockData";
 import { notFound } from "next/navigation";
 
-export default async function RoleDetailPage({ params }: { params: { id: string } }) {
+export default function EditRolePage({ params }: { params: { id: string } }) {
   const role = mockRoles.find(r => r.id === params.id);
   
   if (!role) {
@@ -12,10 +12,10 @@ export default async function RoleDetailPage({ params }: { params: { id: string 
 
   return (
     <PageWrapper
-      title="" // Title is handled inside RoleDetail for custom back link and badges
+      title=""
       subtitle=""
     >
-      <RoleDetail role={role} />
+      <RoleForm initialData={role} isEdit />
     </PageWrapper>
   );
 }

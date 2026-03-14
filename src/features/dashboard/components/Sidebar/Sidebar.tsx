@@ -26,6 +26,7 @@ const OTHERS_MENU = [
   { name: "Proveedores", href: "/suppliers", icon: Truck },
   { name: "Manejo de usuarios", href: "/users", icon: Users },
   { name: "Categorias", href: "/categories", icon: Grid },
+  { name: "Roles", href: "/roles", icon: Users },
 ];
 
 export function Sidebar() {

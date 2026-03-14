@@ -1,117 +1,166 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   ArrowLeft, 
+  FilePlus, 
   Shield, 
-  Check, 
-  X, 
-  Info, 
-  AlertCircle,
+  ShieldAlert, 
+  ShieldCheck, 
+  Lock,
   LayoutDashboard,
   Package,
   Bell,
-  ArrowRightLeft,
-  Truck,
+  ArrowLeftRight,
+  Building2,
   Users,
-  Grid,
+  FolderTree,
   MapPin,
-  ChevronDown,
-  ChevronUp,
-  AlertTriangle
+  AlertTriangle,
+  Info
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
-import { Role, mockRoles, ModuleId, PermissionSet } from '../../mockData';
+import { Role, ModuleId, PermissionSet, mockRoles } from '../../mockData';
 import { roleSchema, RoleFormData } from '../../schemas/user.schema';
-import styles from './RoleForm.module.css';
+import { PermissionMatrix } from './PermissionMatrix';
+import { RoleCard } from '../RolesList/RoleCard';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { useToast } from '../../../../components/ui/Toast';
-import { RoleCard } from '../RolesList/RoleCard';
+import styles from './RoleForm.module.css';
 
 interface RoleFormProps {
   initialData?: Role;
   isEdit?: boolean;
 }
 
-const MODULES: { id: ModuleId; name: string; icon: any }[] = [
-  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
-  { id: 'products', name: 'Productos', icon: Package },
-  { id: 'alerts', name: 'Alertas de Stock', icon: Bell },
-  { id: 'movements', name: 'Movimientos', icon: ArrowRightLeft },
-  { id: 'suppliers', name: 'Proveedores', icon: Truck },
-  { id: 'users', name: 'Usuarios', icon: Users },
-  { id: 'categories', name: 'Categorías', icon: Grid },
-  { id: 'locations', name: 'Localizaciones', icon: MapPin },
+const TEMPLATES = [
+  { 
+    id: 'scratch', 
+    name: 'Desde cero', 
+    icon: FilePlus, 
+    description: 'Sin ningún permiso seleccionado' 
+  },
+  { 
+    id: 'role-admin', 
+    name: 'Clonar Administrador', 
+    icon: ShieldCheck, 
+    description: 'Todos los permisos activos' 
+  },
+  { 
+    id: 'role-supervisor', 
+    name: 'Clonar Supervisor', 
+    icon: Shield, 
+    description: 'Sin eliminar críticos' 
+  },
+  { 
+    id: 'role-operator', 
+    name: 'Clonar Operador', 
+    icon: ShieldAlert, 
+    description: 'Solo lectura y movimientos' 
+  }
+];
+
+const SIDEBAR_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'products', label: 'Productos', icon: Package },
+  { id: 'categories', label: 'Categorías', icon: FolderTree },
+  { id: 'movements', label: 'Movimientos', icon: ArrowLeftRight },
+  { id: 'alerts', label: 'Alertas', icon: Bell },
+  { id: 'suppliers', label: 'Proveedores', icon: Building2 },
+  { id: 'users', label: 'Usuarios', icon: Users },
+  { id: 'locations', label: 'Ubicaciones', icon: MapPin },
 ];
 
 export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState('scratch');
 
   const defaultValues = useMemo(() => {
+    // Check if cloning from URL (from CloneRoleModal)
+    const cloneId = searchParams.get('cloneFrom');
+    const cloneName = searchParams.get('name');
+    
     if (initialData) return initialData;
     
+    if (cloneId) {
+      const source = mockRoles.find(r => r.id === cloneId);
+      if (source) {
+        return {
+          ...source,
+          id: undefined,
+          name: cloneName || `Copia de ${source.name}`,
+          type: 'custom',
+          userCount: 0
+        };
+      }
+    }
+
     const perms: any = {};
-    MODULES.forEach(m => {
+    SIDEBAR_ITEMS.forEach(m => {
       perms[m.id] = { consult: false, create: false, update: false, delete: false };
     });
     return { name: '', description: '', permissions: perms };
-  }, [initialData]);
+  }, [initialData, searchParams]);
 
   const { 
     register, 
     handleSubmit, 
     watch, 
-    setValue,
-    control,
+    setValue, 
     formState: { errors } 
-  } = useForm<any>({
+  } = useForm<RoleFormData>({
     resolver: zodResolver(roleSchema),
-    defaultValues
+    defaultValues: defaultValues as any,
+    mode: 'onChange'
   });
 
   const watchedPermissions = watch('permissions');
   const watchedName = watch('name');
+  const watchedDesc = watch('description');
 
-  const handleConsultToggle = (moduleId: string, value: boolean) => {
-    setValue(`permissions.${moduleId}.consult`, value);
-    if (!value) {
-      // If consult is false, others MUST be false
-      setValue(`permissions.${moduleId}.create`, false);
-      setValue(`permissions.${moduleId}.update`, false);
-      setValue(`permissions.${moduleId}.delete`, false);
+  const applyTemplate = (templateId: string) => {
+    setSelectedTemplate(templateId);
+    let targetPerms: Record<string, PermissionSet> = {};
+    
+    if (templateId === 'scratch') {
+      SIDEBAR_ITEMS.forEach(m => {
+        targetPerms[m.id] = { consult: false, create: false, update: false, delete: false };
+      });
+    } else {
+      const source = mockRoles.find(r => r.id === templateId);
+      if (source) targetPerms = JSON.parse(JSON.stringify(source.permissions));
     }
+
+    setValue('permissions', targetPerms, { shouldValidate: true });
   };
 
-  const setAllPerms = (mode: 'all' | 'none' | 'readonly') => {
-    MODULES.forEach(m => {
-      if (mode === 'all') {
-        setValue(`permissions.${m.id}`, { consult: true, create: true, update: true, delete: true });
-      } else if (mode === 'none') {
-        setValue(`permissions.${m.id}`, { consult: false, create: false, update: false, delete: false });
-      } else if (mode === 'readonly') {
-        setValue(`permissions.${m.id}`, { consult: true, create: false, update: false, delete: false });
-      }
-    });
+  const handlePermissionChange = (moduleId: ModuleId, action: keyof PermissionSet, value: boolean) => {
+    setValue(`permissions.${moduleId}.${action}` as any, value, { shouldValidate: true });
   };
 
-  const getModuleSummary = (moduleId: string) => {
-    const perms = watchedPermissions[moduleId];
-    const count = Object.values(perms).filter(Boolean).length;
-    if (count === 4) return { text: '4/4 completo', color: styles.summaryGreen };
-    if (count === 0) return { text: '0/4 sin acceso', color: styles.summaryGray };
-    if (count === 1 && perms.consult) return { text: '1/4 solo lectura', color: styles.summaryBlue };
-    return { text: `${count}/4 parcial`, color: styles.summaryYellow };
-  };
+  const naturalSummary = useMemo(() => {
+    const modules = Object.values(watchedPermissions || {}) as PermissionSet[];
+    const full = modules.filter(m => Object.values(m).filter(Boolean).length === 4).length;
+    const none = modules.filter(m => Object.values(m).filter(Boolean).length === 0).length;
+    const partial = modules.length - full - none;
+
+    return {
+      text: `Este rol tendrá acceso completo a ${full} módulos, acceso parcial a ${partial} módulos y sin acceso a ${none} módulos.`,
+      counts: { full, partial, none }
+    };
+  }, [watchedPermissions]);
 
   const onSubmit = async (data: any) => {
     setIsLoading(true);
+    // Simulated delay
     await new Promise(r => setTimeout(r, 1500));
     showToast({ 
       message: isEdit ? 'Rol actualizado exitosamente' : 'Rol creado exitosamente', 
@@ -121,182 +170,166 @@ export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
     router.push('/roles');
   };
 
-  const mockPreviewRole: Role = {
+  const previewRole: Role = {
     id: 'preview',
-    name: watchedName || 'Nuevo Rol',
-    description: watch('description') || '',
+    name: watchedName || 'Nombre del rol',
+    description: watchedDesc || '',
     type: 'custom',
     userCount: 0,
+    createdAt: new Date().toISOString(),
     permissions: watchedPermissions
   };
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.headerInfo}>
-          <h1 className={styles.title}>{isEdit ? 'Editar rol' : 'Crear rol'}</h1>
-          {isEdit && <p className={styles.subtitle}>{initialData?.name}</p>}
+      <header className={styles.header}>
+        <div className={styles.titleStack}>
+          <h1 className={styles.title}>{isEdit ? 'Editar rol' : 'Crear rol personalizado'}</h1>
+          <p className={styles.subtitle}>
+            {isEdit ? `Modificando: ${initialData?.name}` : 'Define un nuevo nivel de acceso para tu equipo.'}
+          </p>
         </div>
         <Button variant="secondary" onClick={() => router.push('/roles')}>
           <ArrowLeft size={18} />
           Volver
         </Button>
-      </div>
+      </header>
 
-      {initialData?.type === 'system' && (
-        <div className={styles.systemAlert}>
-          <AlertTriangle size={20} />
-          <p>Este es un rol del sistema y no puede modificarse. Si necesitas uno similar usa la opción <strong>Clonar</strong>.</p>
+      {isEdit && initialData?.userCount && initialData.userCount > 0 && (
+        <div className={styles.bannerInfo}>
+          <Info size={18} />
+          <span>
+            Este rol tiene <strong>{initialData.userCount} usuarios</strong> asignados. 
+            Los cambios se aplicarán inmediatamente. <Link href={`/users?role=${initialData.id}`}>Ver usuarios afectados →</Link>
+          </span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
-        <div className={styles.card}>
-          <h3 className={styles.sectionTitle}>Información básica</h3>
-          <div className={styles.fieldGrid}>
-            <div className={styles.fieldGroup}>
-               <Input 
-                 label="Nombre del rol" 
-                 {...register('name')} 
-                 error={errors.name?.message as string} 
-                 required 
-                 placeholder="Ej: Auditor Interno"
-                 disabled={initialData?.type === 'system'}
-               />
-               <div className={styles.badgePreview}>
-                  <small>Vista previa:</small>
-                  <span className={styles.roleBadge}>{watchedName || 'Nombre del rol'}</span>
-               </div>
-            </div>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Descripción (Opcional)</label>
-              <textarea 
-                className={styles.textarea}
-                {...register('description')}
-                placeholder="Explica el alcance de este rol..."
-                disabled={initialData?.type === 'system'}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.card}>
-          <div className={styles.matrixHeader}>
-            <div className={styles.matrixTitles}>
-              <h3 className={styles.sectionTitle}>Configurar permisos</h3>
-              <p className={styles.sectionSubtitle}>Define qué puede hacer este rol en cada módulo del sistema.</p>
-            </div>
-            <div className={styles.massActions}>
-              <button type="button" onClick={() => setAllPerms('all')}>Seleccionar todo</button>
-              <button type="button" onClick={() => setAllPerms('readonly')}>Solo lectura</button>
-              <button type="button" onClick={() => setAllPerms('none')}>Ninguno</button>
-            </div>
-          </div>
-
-          <div className={styles.matrixWrapper}>
-            <table className={styles.matrix}>
-              <thead>
-                <tr>
-                  <th className={styles.moduleCol}>Módulo</th>
-                  <th>Consultar</th>
-                  <th>Crear</th>
-                  <th>Actualizar</th>
-                  <th>Eliminar</th>
-                  <th className={styles.summaryCol}>Resumen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MODULES.map(module => {
-                  const summary = getModuleSummary(module.id);
-                  const canAct = watchedPermissions[module.id].consult;
-
-                  return (
-                    <tr key={module.id} className={clsx({ [styles.rowDisabled]: !canAct })}>
-                      <td className={styles.moduleCell}>
-                        <module.icon size={18} className={styles.moduleIcon} />
-                        <span>{module.name}</span>
-                      </td>
-                      <td>
-                        <CustomCheckbox 
-                          checked={watchedPermissions[module.id].consult}
-                          onChange={(val) => handleConsultToggle(module.id, val)}
-                          disabled={initialData?.type === 'system'}
-                        />
-                      </td>
-                      <td>
-                        <CustomCheckbox 
-                          checked={watchedPermissions[module.id].create}
-                          onChange={(val) => setValue(`permissions.${module.id}.create`, val)}
-                          disabled={!canAct || initialData?.type === 'system'}
-                        />
-                      </td>
-                      <td>
-                        <CustomCheckbox 
-                          checked={watchedPermissions[module.id].update}
-                          onChange={(val) => setValue(`permissions.${module.id}.update`, val)}
-                          disabled={!canAct || initialData?.type === 'system'}
-                        />
-                      </td>
-                      <td>
-                        <CustomCheckbox 
-                          checked={watchedPermissions[module.id].delete}
-                          onChange={(val) => setValue(`permissions.${module.id}.delete`, val)}
-                          disabled={!canAct || initialData?.type === 'system'}
-                        />
-                      </td>
-                      <td className={styles.summaryCell}>
-                        <span className={clsx(styles.summaryBadge, summary.color)}>
-                          {summary.text}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Collapsible Preview */}
-        <div className={styles.previewSection}>
-          <button 
-            type="button" 
-            className={styles.previewToggle}
-            onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-          >
-            <span>Vista previa del rol</span>
-            {isPreviewOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </button>
-          
-          {isPreviewOpen && (
-            <div className={styles.previewBody}>
-              <div className={styles.previewWrapper}>
-                <RoleCard role={mockPreviewRole} onDelete={() => {}} />
+      <form onSubmit={handleSubmit(onSubmit)} className={styles.layoutBody}>
+        <div className={styles.formCol}>
+          {/* Identity Section */}
+          <section className={styles.formSection}>
+            <h2 className={styles.sectionTitle}>Identidad del rol</h2>
+            <div className={styles.fieldGrid}>
+              <div className={styles.fieldGroup}>
+                <Input 
+                  label="Nombre del rol" 
+                  {...register('name')} 
+                  error={errors.name?.message as string} 
+                  required
+                  placeholder="Ej: Auditor Externo"
+                />
+                <div className={styles.badgePreviewRow}>
+                   <span className={styles.previewLabel}>Vista previa badge:</span>
+                   <span className={styles.roleBadge}>{watchedName || '...'}</span>
+                </div>
+              </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Descripción (Opcional)</label>
+                <textarea 
+                  className={clsx(styles.textarea, { [styles.errorArea]: errors.description })}
+                  {...register('description')}
+                  placeholder="Ej: Acceso de lectura para auditores externos"
+                  maxLength={200}
+                />
+                <div className={styles.counter}>{watchedDesc?.length || 0}/200</div>
+                {errors.description && <span className={styles.errorText}>{errors.description.message as string}</span>}
               </div>
             </div>
+          </section>
+
+          {/* Template Section (Only on create) */}
+          {!isEdit && (
+            <section className={styles.formSection}>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>¿Desde dónde quieres partir?</h2>
+                <p className={styles.sectionSubtitle}>Elige una plantilla como punto de partida o empieza desde cero.</p>
+              </div>
+              <div className={styles.templateGrid}>
+                {TEMPLATES.map(template => {
+                  const Icon = template.icon;
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className={clsx(styles.templateCard, { [styles.selectedTemplate]: selectedTemplate === template.id })}
+                      onClick={() => applyTemplate(template.id)}
+                    >
+                      <div className={styles.templateIcon}><Icon size={20} /></div>
+                      <div className={styles.templateInfo}>
+                        <span className={styles.templateName}>{template.name}</span>
+                        <span className={styles.templateDesc}>{template.description}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           )}
+
+          {/* Matrix Section */}
+          <section className={styles.formSection}>
+             <h2 className={styles.sectionTitle}>Permisos detallados</h2>
+             <PermissionMatrix 
+               permissions={watchedPermissions} 
+               onChange={handlePermissionChange} 
+             />
+             {naturalSummary.counts.full === 0 && naturalSummary.counts.partial === 0 && (
+               <div className={styles.errorBanner}>
+                 <AlertTriangle size={18} />
+                 <span>Un rol sin ningún permiso no tiene sentido. Agrega al menos un permiso de consulta.</span>
+               </div>
+             )}
+          </section>
+
+          <footer className={styles.formFooter}>
+            <Button variant="secondary" type="button" onClick={() => router.push('/roles')}>Cancelar</Button>
+            <Button 
+              type="submit" 
+              isLoading={isLoading} 
+              disabled={naturalSummary.counts.full === 0 && naturalSummary.counts.partial === 0}
+            >
+              {isEdit ? 'Guardar cambios' : 'Crear rol'}
+            </Button>
+          </footer>
         </div>
 
-        <div className={styles.actions}>
-          <Button type="button" variant="secondary" onClick={() => router.push('/roles')}>Cancelar</Button>
-          <Button type="submit" isLoading={isLoading} disabled={initialData?.type === 'system'}>
-            {isEdit ? 'Guardar rol' : 'Crear rol'}
-          </Button>
-        </div>
+        {/* Preview Sticky Column */}
+        <aside className={styles.previewCol}>
+          <div className={styles.stickyContent}>
+            <div className={styles.previewHeader}>
+              <h3 className={styles.previewTitle}>Vista previa del rol</h3>
+              <p className={styles.previewSubtitle}>Así se verá en el sistema en tiempo real.</p>
+            </div>
+
+            <div className={styles.previewCardBox}>
+               <RoleCard role={previewRole} onDelete={() => {}} onClone={() => {}} />
+            </div>
+
+            <div className={styles.previewSummary}>
+              <p className={styles.summaryText}>{naturalSummary.text}</p>
+            </div>
+
+            <div className={styles.simulatorSection}>
+               <h4 className={styles.simulatorTitle}>Sidebar Simulator</h4>
+               <p className={styles.simulatorDesc}>Módulos visibles según permisos de consulta.</p>
+               <div className={styles.miniSidebar}>
+                  {SIDEBAR_ITEMS.map(item => {
+                    const hasConsult = watchedPermissions?.[item.id]?.consult;
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.id} className={clsx(styles.sidebarItem, { [styles.sidebarDisabled]: !hasConsult })}>
+                        <Icon size={14} />
+                        <span>{item.label}</span>
+                        {!hasConsult && <div className={styles.lineThrough} />}
+                      </div>
+                    );
+                  })}
+               </div>
+            </div>
+          </div>
+        </aside>
       </form>
     </div>
-  );
-}
-
-function CustomCheckbox({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      className={clsx(styles.checkbox, { [styles.checked]: checked, [styles.disabledCheckbox]: disabled })}
-      onClick={() => !disabled && onChange(!checked)}
-      disabled={disabled}
-    >
-      {checked && <Check size={14} strokeWidth={3} />}
-    </button>
   );
 }

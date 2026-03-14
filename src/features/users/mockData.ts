@@ -22,6 +22,9 @@ export interface Role {
   type: 'system' | 'custom';
   userCount: number;
   permissions: Record<ModuleId, PermissionSet>;
+  createdAt: string;
+  lastModified?: string;
+  modifiedBy?: string;
 }
 
 export interface User {
@@ -64,6 +67,7 @@ export const mockRoles: Role[] = [
     description: 'Acceso total y gestión de seguridad del sistema.',
     type: 'system',
     userCount: 2,
+    createdAt: '2023-01-01T08:00:00Z',
     permissions: {
       dashboard: FULL_PERMISSIONS,
       products: FULL_PERMISSIONS,
@@ -78,9 +82,10 @@ export const mockRoles: Role[] = [
   {
     id: 'role-supervisor',
     name: 'Supervisor',
-    description: 'Gestión operativa completa sin administración de usuarios.',
+    description: 'Gestión operativa completa sin administración de usuarios ni eliminaciones críticas.',
     type: 'system',
     userCount: 3,
+    createdAt: '2023-01-01T08:00:00Z',
     permissions: {
       dashboard: FULL_PERMISSIONS,
       products: FULL_PERMISSIONS,
@@ -95,16 +100,17 @@ export const mockRoles: Role[] = [
   {
     id: 'role-operator',
     name: 'Operador',
-    description: 'Registro de movimientos y consulta de inventario.',
+    description: 'Registro de movimientos y consulta de inventario básica.',
     type: 'system',
     userCount: 4,
+    createdAt: '2023-01-01T08:00:00Z',
     permissions: {
       dashboard: READ_ONLY_PERMISSIONS,
       products: READ_ONLY_PERMISSIONS,
       alerts: READ_ONLY_PERMISSIONS,
-      movements: { ...FULL_PERMISSIONS, delete: false },
+      movements: { ...DEFAULT_PERMISSIONS, consult: true, create: true },
       suppliers: READ_ONLY_PERMISSIONS,
-      users: { ...DEFAULT_PERMISSIONS },
+      users: DEFAULT_PERMISSIONS,
       categories: READ_ONLY_PERMISSIONS,
       locations: READ_ONLY_PERMISSIONS,
     }
@@ -112,9 +118,12 @@ export const mockRoles: Role[] = [
   {
     id: 'role-auditor',
     name: 'Auditor Externo',
-    description: 'Solo lectura para todos los módulos de trazabilidad.',
+    description: 'Solo lectura para todos los módulos para revisión técnica.',
     type: 'custom',
     userCount: 1,
+    createdAt: '2024-03-01T10:00:00Z',
+    lastModified: '2024-03-05T15:30:00Z',
+    modifiedBy: 'Roberto Gómez',
     permissions: {
       dashboard: READ_ONLY_PERMISSIONS,
       products: READ_ONLY_PERMISSIONS,
@@ -129,9 +138,12 @@ export const mockRoles: Role[] = [
   {
     id: 'role-stock',
     name: 'Bodeguero Senior',
-    description: 'Control de stock y creación de productos.',
+    description: 'Control de stock y creación de productos sin eliminación.',
     type: 'custom',
     userCount: 2,
+    createdAt: '2023-05-10T09:00:00Z',
+    lastModified: '2024-01-15T11:20:00Z',
+    modifiedBy: 'Ana Milena Rojas',
     permissions: {
       dashboard: READ_ONLY_PERMISSIONS,
       products: { ...FULL_PERMISSIONS, delete: false },
@@ -140,6 +152,24 @@ export const mockRoles: Role[] = [
       suppliers: READ_ONLY_PERMISSIONS,
       users: DEFAULT_PERMISSIONS,
       categories: { ...FULL_PERMISSIONS, delete: false },
+      locations: READ_ONLY_PERMISSIONS,
+    }
+  },
+  {
+    id: 'role-purchasing',
+    name: 'Jefe de Compras',
+    description: 'Gestión completa de proveedores y movimientos de entrada.',
+    type: 'custom',
+    userCount: 0,
+    createdAt: '2024-03-10T14:00:00Z',
+    permissions: {
+      dashboard: READ_ONLY_PERMISSIONS,
+      products: READ_ONLY_PERMISSIONS,
+      alerts: READ_ONLY_PERMISSIONS,
+      movements: { ...FULL_PERMISSIONS, delete: false },
+      suppliers: FULL_PERMISSIONS,
+      users: DEFAULT_PERMISSIONS,
+      categories: READ_ONLY_PERMISSIONS,
       locations: READ_ONLY_PERMISSIONS,
     }
   }
