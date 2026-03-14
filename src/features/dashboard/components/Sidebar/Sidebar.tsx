@@ -16,9 +16,9 @@ import styles from "./Sidebar.module.css";
 
 const MAIN_MENU = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Productos", href: "/productos", icon: Package },
-  { name: "Alertas de stock", href: "/alertas", icon: AlertTriangle },
-  { name: "Movimiento de productos", href: "/movimientos", icon: ArrowRightLeft },
+  { name: "Productos", href: "/products", icon: Package },
+  { name: "Alertas de stock", href: "/alerts", icon: AlertTriangle },
+  { name: "Movimiento de productos", href: "/movements", icon: ArrowRightLeft },
 ];
 
 const OTHERS_MENU = [
