@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { Bell, User, ChevronDown } from "lucide-react";
+import { Bell } from "lucide-react";
 import styles from "./Topbar.module.css";
+import { UserDropdown } from "./UserDropdown";
 
 export function Topbar() {
   return (
@@ -10,19 +11,16 @@ export function Topbar() {
       <h1 className={styles.logo}>CA STORE</h1>
 
       <div className={styles.rightSection}>
-        <button className={styles.iconButton} aria-label="Notificaciones">
-          <Bell className="h-5 w-5" />
-        </button>
+        <div className={styles.notificationsWrapper}>
+          <button className={styles.iconButton} aria-label="Notificaciones">
+            <Bell size={20} />
+            <span className={styles.badge}>5</span>
+          </button>
+        </div>
 
-        <button className={styles.userDropdown}>
-          <div className={styles.avatar}>
-            <User className="h-4 w-4" />
-          </div>
-          <div className={styles.userInfo}>
-            <span>Delicious Burger</span>
-            <ChevronDown className={`h-4 w-4 ${styles.chevron}`} />
-          </div>
-        </button>
+        <div className={styles.verticalDivider} />
+
+        <UserDropdown />
       </div>
     </header>
   );

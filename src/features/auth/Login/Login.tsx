@@ -9,6 +9,7 @@ import clsx from "clsx";
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthForm } from "../components/AuthForm";
 import styles from "./Login.module.css";
+import { useRouter } from "next/navigation";
 
 const loginSchema = z.object({
   email: z.string().email("Ingresa un correo electrónico válido"),
@@ -21,6 +22,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
 
   const {
     register,
@@ -46,6 +48,7 @@ export default function Login() {
       });
       // Redirect al dashboard o manejar éxito
       console.log("Login exitoso", data);
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Ocurrió un error inesperado");
     } finally {

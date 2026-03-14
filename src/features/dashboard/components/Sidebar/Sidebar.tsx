@@ -11,6 +11,7 @@ import {
   ArrowRightLeft,
   Truck,
   Users,
+  Grid,
 } from "lucide-react";
 import styles from "./Sidebar.module.css";
 
@@ -22,8 +23,9 @@ const MAIN_MENU = [
 ];
 
 const OTHERS_MENU = [
-  { name: "Proveedores", href: "/proveedores", icon: Truck },
-  { name: "Manejo de usuarios", href: "/usuarios", icon: Users },
+  { name: "Proveedores", href: "/suppliers", icon: Truck },
+  { name: "Manejo de usuarios", href: "/users", icon: Users },
+  { name: "Categorias", href: "/categories", icon: Grid },
 ];
 
 export function Sidebar() {

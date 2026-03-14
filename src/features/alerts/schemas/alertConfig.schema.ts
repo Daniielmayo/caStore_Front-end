@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const alertConfigSchema = z.object({
   productId: z.string().min(1, 'Debe seleccionar un producto'),
   alertType: z.enum(['low_stock', 'expiration'], {
-    required_error: 'Debe seleccionar un tipo de alerta'
+    message: 'Debe seleccionar un tipo de alerta'
   }),
   minStock: z.number().int().optional(),
   expirationDays: z.array(z.number()).optional(),
