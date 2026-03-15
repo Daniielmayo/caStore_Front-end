@@ -12,6 +12,7 @@ import {
   Truck,
   Users,
   Grid,
+  MapPin
 } from "lucide-react";
 import styles from "./Sidebar.module.css";
 
@@ -20,6 +21,7 @@ const MAIN_MENU = [
   { name: "Productos", href: "/products", icon: Package },
   { name: "Alertas de stock", href: "/alerts", icon: AlertTriangle },
   { name: "Movimiento de productos", href: "/movements", icon: ArrowRightLeft },
+  { name: "Ubicaciones", href: "/locations", icon: MapPin },
 ];
 
 const OTHERS_MENU = [
