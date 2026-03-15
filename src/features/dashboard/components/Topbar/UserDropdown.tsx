@@ -1,20 +1,16 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  User as UserIcon, 
-  LogOut, 
-  ChevronDown, 
-  Bell,
-  X,
-  AlertTriangle
-} from 'lucide-react';
+import { User as UserIcon, LogOut, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
-import { useAuth, getInitials } from '../../../../features/auth/context/AuthContext';
+
+import { useAuth, getInitials } from '@/src/features/auth/context/AuthContext';
+import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
+
 import styles from './Topbar.module.css';
-import { Button } from '../../../../components/ui/Button';
 
 export function UserDropdown() {
   const { user, logout } = useAuth();
@@ -113,36 +109,31 @@ export function UserDropdown() {
         </div>
       )}
 
-      {/* Logout Confirmation Modal */}
-      {showLogoutModal && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <AlertTriangle className={styles.modalIcon} size={24} />
-              <h3 className={styles.modalTitle}>¿Cerrar sesión?</h3>
-            </div>
-            <p className={styles.modalDesc}>
-              Tu sesión activa será terminada. Tendrás que volver a iniciar sesión para acceder al sistema.
-            </p>
-            <div className={styles.modalFooter}>
-              <Button 
-                variant="secondary" 
-                onClick={() => setShowLogoutModal(false)}
-                disabled={isLoggingOut}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                variant="danger" 
-                onClick={handleLogout}
-                isLoading={isLoggingOut}
-              >
-                Cerrar sesión
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        title="¿Cerrar sesión?"
+        variant="warning"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setShowLogoutModal(false)}
+              disabled={isLoggingOut}
+            >
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={handleLogout} isLoading={isLoggingOut}>
+              Cerrar sesión
+            </Button>
+          </>
+        }
+      >
+        <p className={styles.modalDesc}>
+          Tu sesión activa será terminada. Tendrás que volver a iniciar sesión para acceder al
+          sistema.
+        </p>
+      </Modal>
     </div>
   );
 }

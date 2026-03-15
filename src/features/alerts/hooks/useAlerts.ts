@@ -241,7 +241,7 @@ export function useAlerts() {
     alerts: list.alerts,
     isLoading: list.isLoading,
     isUsingMock: list.isUsingMock,
-    error: list.error instanceof Error ? list.error.message : (list.error as string) ?? null,
+    error: list.error instanceof Error ? list.error.message : list.error != null ? String(list.error) : null,
     refresh: list.refresh,
     isEmpty: list.isEmpty,
   };

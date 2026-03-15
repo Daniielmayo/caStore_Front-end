@@ -3,8 +3,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
-import { useAuth } from '@/src/hooks/useAuth';
+
 import { useAlertsSummary } from '@/src/features/alerts/hooks/useAlerts';
+import { useAuth } from '@/src/hooks/useAuth';
+import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
+
 import styles from './Topbar.module.css';
 
 const routeTitles: Record<string, string> = {
@@ -25,6 +29,7 @@ export function Topbar() {
   const { user, logoutAction } = useAuth();
   const { activeCount } = useAlertsSummary();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const title = routeTitles[pathname] || 'Dashboard';
@@ -41,12 +46,15 @@ export function Topbar() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showDropdown]);
 
-  const handleLogout = async () => {
-    if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-      setShowDropdown(false);
-      await logoutAction();
-      router.push('/login');
-    }
+  const handleLogoutClick = () => {
+    setShowDropdown(false);
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    await logoutAction();
+    setShowLogoutModal(false);
+    router.push('/login');
   };
 
   return (
@@ -102,7 +110,7 @@ export function Topbar() {
                 <span>Mi perfil</span>
               </button>
               <div className={styles.dropdownDivider} />
-              <button className={styles.logoutBtn} onClick={handleLogout}>
+              <button className={styles.logoutBtn} onClick={handleLogoutClick}>
                 <LogOut size={16} />
                 <span>Cerrar sesión</span>
               </button>
@@ -110,6 +118,28 @@ export function Topbar() {
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        title="¿Cerrar sesión?"
+        variant="warning"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowLogoutModal(false)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={handleLogoutConfirm}>
+              Cerrar sesión
+            </Button>
+          </>
+        }
+      >
+        <p className={styles.modalDesc}>
+          ¿Estás seguro de que deseas cerrar sesión? Tendrás que volver a iniciar sesión para
+          acceder al sistema.
+        </p>
+      </Modal>
     </header>
   );
 }

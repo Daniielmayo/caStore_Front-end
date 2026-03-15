@@ -97,7 +97,7 @@ export function useCreateUser(
     },
     onSuccess: (_data, _variables, _context) => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
-      options?.onSuccess?.(_data, _variables, _context);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(_data, _variables, _context, undefined as unknown);
     },
     ...options,
   });
@@ -124,7 +124,7 @@ export function useUpdateUser(
       if (variables.id) {
         queryClient.invalidateQueries({ queryKey: userDetailKey(variables.id) });
       }
-      options?.onSuccess?.(_data, variables, _context);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(_data, variables, _context, undefined as unknown);
     },
     ...options,
   });
@@ -146,7 +146,7 @@ export function useUpdateUserStatus(
       if (variables.id) {
         queryClient.invalidateQueries({ queryKey: userDetailKey(variables.id) });
       }
-      options?.onSuccess?.(_data, variables, _context);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(_data, variables, _context, undefined as unknown);
     },
     ...options,
   });
@@ -168,7 +168,7 @@ export function useResendPassword(
     onSuccess: (_data, id, _context) => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: userDetailKey(id) });
-      options?.onSuccess?.(_data, id, _context);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(_data, id, _context, undefined as unknown);
     },
     ...options,
   });

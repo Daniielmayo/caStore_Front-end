@@ -294,7 +294,7 @@ export function CategoriesManagement() {
         }}
         onDelete={(cat) => {
           setIsDetailOpen(false);
-          handleDeleteClick(treeItemToCategory({ ...cat, children: [] } as CategoryTreeItem));
+          handleDeleteClick({ ...cat, children: [] } as CategoryTreeItem);
         }}
       />
 

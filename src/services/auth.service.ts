@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { getStoredToken, clearAuth } from '../lib/auth';
 import type {
   LoginCredentials,
@@ -31,22 +31,55 @@ authClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      clearAuth();
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+      const requestUrl = error.config?.url ?? '';
+      const isLoginRequest = /auth\/login/.test(requestUrl);
+      if (!isLoginRequest) {
+        clearAuth();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);
   }
 );
 
+function isAxiosErrorLike(error: unknown): error is { response?: { status?: number; data?: { message?: string } }; code?: string; config?: { url?: string } } {
+  return Boolean(error && typeof error === 'object' && 'response' in error);
+}
+
 function getMessageFromError(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    const err = error as AxiosError<{ message?: string }>;
-    return err.response?.data?.message ?? 'Error de conexión';
+  if (isAxiosErrorLike(error)) {
+    const data = error.response?.data;
+    return (data && typeof data === 'object' && 'message' in data ? (data as { message?: string }).message : undefined) ?? 'Error de conexión';
   }
   if (error instanceof Error) return error.message;
   return 'Error inesperado';
+}
+
+/** Mensajes en español para errores de login según código HTTP o tipo de error */
+function getLoginErrorMessage(error: unknown): string {
+  if (!isAxiosErrorLike(error)) {
+    return error instanceof Error ? error.message : 'Error al iniciar sesión. Intenta de nuevo.';
+  }
+  const status = error.response?.status;
+  const code = error.code;
+  if (status === 401) {
+    return 'Correo o contraseña incorrectos. Intenta de nuevo.';
+  }
+  if (status === 403) {
+    return 'Tu cuenta está desactivada. Contacta al administrador.';
+  }
+  if (status === 422) {
+    return 'Verifica que el correo tenga un formato válido.';
+  }
+  if (status === 500) {
+    return 'Error del servidor. Intenta de nuevo en unos minutos.';
+  }
+  if (code === 'ERR_NETWORK' || code === 'ECONNABORTED') {
+    return 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+  }
+  return 'Error al iniciar sesión. Intenta de nuevo.';
 }
 
 /** Mock de login para fallback cuando el servicio falla */
@@ -86,13 +119,13 @@ export const authService = {
       }
       return data;
     } catch (error) {
-      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+      if (isAxiosErrorLike(error) && error.code === 'ECONNABORTED') {
         return mockLoginResponse(credentials);
       }
-      if (axios.isAxiosError(error) && (error.response?.status === 502 || error.response?.status === 503)) {
+      if (isAxiosErrorLike(error) && (error.response?.status === 502 || error.response?.status === 503)) {
         return mockLoginResponse(credentials);
       }
-      throw new Error(getMessageFromError(error));
+      throw new Error(getLoginErrorMessage(error));
     }
   },
 
@@ -121,7 +154,7 @@ export const authService = {
     try {
       await authClient.post('/auth/recover-password', { email });
     } catch (error) {
-      if (axios.isAxiosError(error) && (error.code === 'ECONNABORTED' || error.response?.status === 502 || error.response?.status === 503)) {
+      if (isAxiosErrorLike(error) && (error.code === 'ECONNABORTED' || error.response?.status === 502 || error.response?.status === 503)) {
         return; // fallback silencioso para no revelar si el correo existe
       }
       throw new Error(getMessageFromError(error));
@@ -136,7 +169,7 @@ export const authService = {
     try {
       await authClient.post('/auth/reset-password', data);
     } catch (error) {
-      if (axios.isAxiosError(error) && (error.code === 'ECONNABORTED' || error.response?.status === 502 || error.response?.status === 503)) {
+      if (isAxiosErrorLike(error) && (error.code === 'ECONNABORTED' || error.response?.status === 502 || error.response?.status === 503)) {
         return; // fallback mock: no hacer nada, el usuario puede reintentar
       }
       throw new Error(getMessageFromError(error));

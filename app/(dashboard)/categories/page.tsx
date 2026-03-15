@@ -24,7 +24,7 @@ export default function CategoriesPage() {
             <AlertCircle size={48} className={styles.errorIcon} />
             <h3>Error al cargar las categorías</h3>
             <p>{error}</p>
-            <button type="button" onClick={refresh} className={styles.retryBtn}>
+            <button type="button" onClick={() => refresh()} className={styles.retryBtn}>
               <RefreshCw size={16} />
               Reintentar
             </button>
@@ -44,7 +44,7 @@ export default function CategoriesPage() {
             <button
               type="button"
               className={clsx(styles.refreshBtn, isLoading && styles.spinning)}
-              onClick={refresh}
+              onClick={() => refresh()}
               disabled={isLoading}
             >
               <RefreshCw size={18} />

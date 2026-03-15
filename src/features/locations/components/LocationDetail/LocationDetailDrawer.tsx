@@ -58,8 +58,8 @@ function buildPathFromTree(location: Location, tree: LocationTreeNode[]): Locati
       capacity: current.capacity,
       parentId: current.parentId,
     });
-    const parentId = current.parentId ?? null;
-    current = parentId ? byId.get(parentId) : undefined;
+    const nextParentId: string | null = current.parentId ?? null;
+    current = nextParentId ? byId.get(nextParentId) : undefined;
   }
   return path;
 }

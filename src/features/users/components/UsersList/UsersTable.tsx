@@ -4,12 +4,15 @@ import React, { useState } from 'react';
 import { Edit2, Mail, Power, Send } from 'lucide-react';
 import Link from 'next/link';
 import clsx from 'clsx';
+
 import type { User } from '@/src/features/users/types/users.types';
 import { getInitials } from '@/src/features/users/schemas/user.schema';
-import styles from './UsersTable.module.css';
-import { Button } from '@/src/components/ui/Button';
-import { useToast } from '@/src/components/ui/Toast';
 import { useResendPassword } from '@/src/features/users/hooks/useUsers';
+import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
+import { useToast } from '@/src/components/ui/Toast';
+
+import styles from './UsersTable.module.css';
 
 interface UsersTableProps {
   users: User[];
@@ -196,56 +199,52 @@ export function UsersTable({ users, onToggleStatus }: UsersTableProps) {
       </div>
 
       {/* Modal: Toggle estado */}
-      {confirmModal?.type === 'toggle' && confirmModal.currentStatus !== undefined && (
-        <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="toggle-modal-title">
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <Power className={styles.modalIcon} size={24} aria-hidden />
-              <h3 id="toggle-modal-title" className={styles.modalTitle}>
-                {confirmModal.currentStatus === 'active'
-                  ? '¿Desactivar usuario?'
-                  : '¿Activar usuario?'}
-              </h3>
-            </div>
-            <p className={styles.modalDesc}>
-              {confirmModal.currentStatus === 'active' ? (
-                <>
-                  El usuario <strong>{confirmModal.name}</strong> no podrá acceder al sistema hasta que sea activado de nuevo.
-                </>
-              ) : (
-                <>
-                  El usuario <strong>{confirmModal.name}</strong> podrá volver a acceder al sistema.
-                </>
-              )}
-            </p>
-            <div className={styles.modalFooter}>
+      <Modal
+        isOpen={confirmModal?.type === 'toggle' && confirmModal.currentStatus !== undefined}
+        onClose={() => setConfirmModal(null)}
+        title={
+          confirmModal?.type === 'toggle' && confirmModal.currentStatus === 'active'
+            ? '¿Desactivar usuario?'
+            : '¿Activar usuario?'
+        }
+        variant="danger"
+        footer={
+          confirmModal?.type === 'toggle' && confirmModal.currentStatus !== undefined ? (
+            <>
               <Button variant="secondary" onClick={() => setConfirmModal(null)}>
                 Cancelar
               </Button>
               <Button onClick={executeToggle}>
                 {confirmModal.currentStatus === 'active' ? 'Desactivar' : 'Activar'}
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
+            </>
+          ) : undefined
+        }
+      >
+        {confirmModal?.type === 'toggle' && confirmModal.currentStatus !== undefined && (
+          <p className={styles.modalDesc}>
+            {confirmModal.currentStatus === 'active' ? (
+              <>
+                El usuario <strong>{confirmModal.name}</strong> no podrá acceder al sistema hasta
+                que sea activado de nuevo.
+              </>
+            ) : (
+              <>
+                El usuario <strong>{confirmModal.name}</strong> podrá volver a acceder al sistema.
+              </>
+            )}
+          </p>
+        )}
+      </Modal>
 
       {/* Modal: Reenviar contraseña */}
-      {confirmModal?.type === 'reset' && (
-        <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="resend-modal-title">
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <Send className={styles.modalIcon} size={24} aria-hidden />
-              <h3 id="resend-modal-title" className={styles.modalTitle}>
-                ¿Reenviar contraseña temporal?
-              </h3>
-            </div>
-            <p className={styles.modalDesc}>
-              Se generará una nueva contraseña temporal para{' '}
-              <strong>{confirmModal.name}</strong> y se enviará al correo registrado.
-              El usuario deberá cambiarla en su próximo acceso.
-            </p>
-            <div className={styles.modalFooter}>
+      <Modal
+        isOpen={confirmModal?.type === 'reset'}
+        onClose={() => setConfirmModal(null)}
+        title="¿Reenviar contraseña temporal?"
+        footer={
+          confirmModal?.type === 'reset' ? (
+            <>
               <Button variant="secondary" onClick={() => setConfirmModal(null)}>
                 Cancelar
               </Button>
@@ -256,10 +255,18 @@ export function UsersTable({ users, onToggleStatus }: UsersTableProps) {
               >
                 Enviar contraseña
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
+            </>
+          ) : undefined
+        }
+      >
+        {confirmModal?.type === 'reset' && (
+          <p className={styles.modalDesc}>
+            Se generará una nueva contraseña temporal para{' '}
+            <strong>{confirmModal.name}</strong> y se enviará al correo registrado. El usuario
+            deberá cambiarla en su próximo acceso.
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

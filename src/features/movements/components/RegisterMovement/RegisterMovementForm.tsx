@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -84,7 +84,7 @@ export function RegisterMovementForm() {
     setValue,
     formState: { errors },
   } = useForm<CreateMovementFormData>({
-    resolver: zodResolver(createMovementSchema),
+    resolver: zodResolver(createMovementSchema) as Resolver<CreateMovementFormData>,
     defaultValues: {
       type: 'PURCHASE_ENTRY',
       productId: '',

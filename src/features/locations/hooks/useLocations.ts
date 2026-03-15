@@ -181,10 +181,10 @@ export function useCreateLocation(
       const res = await locationsService.create(dto);
       return res ? apiToLocation(res) : null;
     },
-    onSuccess: (_data, _variables, _context) => {
+    onSuccess: (data, variables, context) => {
       queryClient.invalidateQueries({ queryKey: LOCATIONS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: LOCATIONS_TREE_QUERY_KEY });
-      options?.onSuccess?.(_data, _variables, _context);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(data, variables, context, undefined as unknown);
     },
     ...options,
   });
@@ -212,7 +212,7 @@ export function useUpdateLocation(
       if (variables.id) {
         queryClient.invalidateQueries({ queryKey: locationDetailKey(variables.id) });
       }
-      options?.onSuccess?.(data, variables, undefined);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(data, variables, undefined, undefined as unknown);
     },
     ...options,
   });
@@ -230,7 +230,7 @@ export function useDeleteLocation(
       queryClient.invalidateQueries({ queryKey: LOCATIONS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: LOCATIONS_TREE_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: locationDetailKey(_id) });
-      options?.onSuccess?.(_data, _id, undefined);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(_data, _id, undefined, undefined as unknown);
     },
     ...options,
   });

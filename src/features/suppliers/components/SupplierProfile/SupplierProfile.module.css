@@ -422,3 +422,10 @@
 .deleteBtn:hover:not(:disabled) {
   background-color: rgba(220, 38, 38, 0.08);
 }
+
+.modalBodyText {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--color-dark-2);
+  line-height: 1.5;
+}

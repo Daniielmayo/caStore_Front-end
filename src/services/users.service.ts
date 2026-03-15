@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import api from '@/src/lib/api';
 import type {
   UserApi,
@@ -28,9 +28,9 @@ export interface UpdatePasswordPayload {
 }
 
 function getMessageFromError(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    const err = error as AxiosError<{ message?: string }>;
-    return err.response?.data?.message ?? 'Error de conexión';
+  if (error && typeof error === 'object' && 'response' in error) {
+    const data = (error as { response?: { data?: { message?: string } } }).response?.data;
+    return data?.message ?? 'Error de conexión';
   }
   if (error instanceof Error) return error.message;
   return 'Error inesperado';

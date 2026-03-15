@@ -184,73 +184,27 @@
   color: var(--color-dark);
 }
 
-/* Modal Styles */
-.modalOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(2px);
-}
-
-.modal {
-  background-color: white;
-  border-radius: var(--radius-xl);
-  width: 100%;
-  max-width: 400px;
-  padding: var(--space-8);
-  box-shadow: var(--shadow-lg);
-  animation: modalIn var(--transition-normal);
-}
-
-@keyframes modalIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.modalHeader {
-  margin-bottom: var(--space-6);
-}
-
-.modalTitle {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-dark);
-  margin-bottom: 4px;
-}
-
+/* CloneRoleModal content (uses shared Modal from components/ui) */
 .modalSubtitle {
   font-size: var(--text-sm);
   color: var(--color-mid);
+  margin: 0 0 var(--space-4) 0;
 }
 
 .modalBody {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  margin-bottom: var(--space-8);
 }
 
 .infoBox {
-  background-color: #F8FAFC;
+  background-color: var(--color-light);
   border: 1px solid var(--color-border);
   padding: var(--space-4);
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--color-mid);
   line-height: 1.5;
-}
-
-.modalFooter {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
 }
 
 @media (max-width: 1200px) {

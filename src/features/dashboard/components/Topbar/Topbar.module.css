@@ -271,60 +271,10 @@
   margin: var(--space-1) 0;
 }
 
-/* Logout Modal */
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(30, 41, 59, 0.4);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: var(--space-4);
-}
-
-.modal {
-  background-color: white;
-  border-radius: var(--radius-xl);
-  padding: var(--space-8);
-  max-width: 400px;
-  width: 100%;
-  box-shadow: var(--shadow-lg);
-  animation: modalScaleUp 0.2s ease-out;
-}
-
-@keyframes modalScaleUp {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-.modalHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-
-.modalIcon {
-  color: #EF4444;
-}
-
-.modalTitle {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--color-dark);
-}
-
+/* Modal content (uses shared Modal from components/ui) */
 .modalDesc {
   font-size: var(--text-sm);
   color: var(--color-mid);
   line-height: 1.6;
-  margin-bottom: var(--space-8);
-}
-
-.modalFooter {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
+  margin: 0;
 }

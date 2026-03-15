@@ -236,7 +236,7 @@ export function useCreateMovement(
       if (variables.productId) {
         queryClient.invalidateQueries({ queryKey: [...MOVEMENTS_KARDEX_KEY, variables.productId] });
       }
-      options?.onSuccess?.(data, variables, context);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(data, variables, context, undefined as unknown);
     },
     ...options,
   });

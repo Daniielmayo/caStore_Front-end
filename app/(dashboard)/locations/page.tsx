@@ -22,7 +22,7 @@ export default function LocationsPageRoute() {
             <AlertCircle size={48} className={styles.errorIcon} />
             <h3>Error al cargar las ubicaciones</h3>
             <p>{error}</p>
-            <button type="button" onClick={refresh} className={styles.retryBtn}>
+            <button type="button" onClick={() => refresh()} className={styles.retryBtn}>
               <RefreshCw size={16} />
               Reintentar
             </button>

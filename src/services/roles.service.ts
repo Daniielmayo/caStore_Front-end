@@ -65,8 +65,8 @@ export async function cloneRole(id: string, name: string): Promise<ApiRole | nul
 
 /** Extrae mensaje de error para mostrar en toast (backend o genérico). */
 export function getRoleErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
-    const msg = (err.response.data as { message?: string }).message;
+  if (err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: unknown } }).response?.data != null && typeof (err as { response: { data: unknown } }).response.data === 'object') {
+    const msg = ((err as { response: { data: { message?: string } } }).response.data as { message?: string }).message;
     if (typeof msg === 'string') return msg;
   }
   return err instanceof Error ? err.message : 'Error en la operación';

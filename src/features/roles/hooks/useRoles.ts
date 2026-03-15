@@ -63,7 +63,9 @@ export function useRolesList(params: GetRolesParams = {}, options?: { enabled?: 
 export function useRoles(options?: UseQueryOptions<{ roles: RoleView[]; isUsingMock: boolean }, Error>) {
   const { roles, pagination, isLoading, error, refetch, isUsingMock } = useRolesList(
     { page: 1, limit: 100 },
-    { enabled: options?.enabled ?? true }
+    {
+      enabled: typeof options?.enabled === 'boolean' ? options.enabled : true,
+    }
   );
   const isEmpty = (pagination?.total ?? 0) === 0 && !isLoading;
   return {

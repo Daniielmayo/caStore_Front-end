@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Check,
@@ -119,7 +119,7 @@ export function SupplierWizard({ initialData, isEdit = false }: SupplierWizardPr
   } = useForm<SupplierFormData>({
     resolver: zodResolver(
       currentStep === 1 ? supplierStep1Schema : currentStep === 2 ? supplierStep2Schema : supplierSchema
-    ),
+    ) as unknown as Resolver<SupplierFormData>,
     defaultValues,
   });
 

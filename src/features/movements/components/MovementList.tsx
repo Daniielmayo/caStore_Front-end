@@ -31,7 +31,7 @@ export function MovementList({ movements }: MovementListProps) {
               <td className={mov.quantity > 0 ? styles.positive : styles.negative}>
                 {mov.quantity > 0 ? `+${mov.quantity}` : mov.quantity}
               </td>
-              <td>{mov.userFullName}</td>
+              <td>{(mov as { userFullName?: string }).userFullName ?? '-'}</td>
               <td>{new Date(mov.createdAt).toLocaleString()}</td>
             </tr>
           ))}

@@ -34,22 +34,23 @@ export const movementsService = {
     if (params.dateTo) searchParams.set('dateTo', params.dateTo);
 
     const response = await api.get<PaginatedMovementsResponse>(`${BASE}?${searchParams.toString()}`);
-    return unwrap(response) ?? response?.data ?? null;
+    const result = unwrap(response) ?? response?.data ?? null;
+    return result as PaginatedMovementsResponse | null;
   },
 
   async getMovementById(id: string): Promise<MovementWithDetails | null> {
     const response = await api.get<MovementWithDetails>(`${BASE}/${id}`);
-    return unwrap(response) ?? response?.data ?? null;
+    return (unwrap(response) ?? response?.data ?? null) as MovementWithDetails | null;
   },
 
   async getTodaySummary(): Promise<TodaySummaryResponse | null> {
     const response = await api.get<TodaySummaryResponse>(`${BASE}/summary/today`);
-    return unwrap(response) ?? response?.data ?? null;
+    return (unwrap(response) ?? response?.data ?? null) as TodaySummaryResponse | null;
   },
 
   async getDailySummary(days: number = 7): Promise<DailySummaryItem[] | null> {
     const response = await api.get<DailySummaryItem[]>(`${BASE}/summary/daily?days=${days}`);
-    return unwrap(response) ?? response?.data ?? null;
+    return (unwrap(response) ?? response?.data ?? null) as DailySummaryItem[] | null;
   },
 
   async getKardex(params: GetKardexParams): Promise<KardexResponse | null> {
@@ -60,11 +61,11 @@ export const movementsService = {
     if (params.limit != null) searchParams.set('limit', String(params.limit));
 
     const response = await api.get<KardexResponse>(`${BASE}/kardex?${searchParams.toString()}`);
-    return unwrap(response) ?? response?.data ?? null;
+    return (unwrap(response) ?? response?.data ?? null) as KardexResponse | null;
   },
 
   async createMovement(dto: CreateMovementDto): Promise<MovementWithDetails | null> {
     const response = await api.post<MovementWithDetails>(BASE, dto);
-    return unwrap(response) ?? response?.data ?? null;
+    return (unwrap(response) ?? response?.data ?? null) as MovementWithDetails | null;
   },
 };

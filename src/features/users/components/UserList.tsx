@@ -23,7 +23,7 @@ export function UserList({ users }: { users: User[] }) {
               <td>{u.email}</td>
               <td>{u.roleName}</td>
               <td>
-                <span className={u.status === 'ACTIVE' ? styles.active : styles.inactive}>
+                <span className={u.status === 'active' ? styles.active : styles.inactive}>
                   {u.status}
                 </span>
               </td>

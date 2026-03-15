@@ -146,10 +146,10 @@ export function KardexReport({ productId }: KardexReportProps) {
               {currentStock}
             </span>
           </div>
-          {product?.locationName && (
+          {(product as { locationName?: string } | null)?.locationName && (
             <div className={styles.locationBox}>
               <MapPin size={16} />
-              <span>{product.locationName}</span>
+              <span>{(product as { locationName?: string }).locationName}</span>
             </div>
           )}
         </div>

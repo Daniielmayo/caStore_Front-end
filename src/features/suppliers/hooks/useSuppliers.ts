@@ -149,7 +149,7 @@ export function useCreateSupplier(
     mutationFn: (dto: CreateSupplierDto) => suppliersService.createSupplier(dto),
     onSuccess: (_data, _variables, _context) => {
       queryClient.invalidateQueries({ queryKey: SUPPLIERS_QUERY_KEY });
-      options?.onSuccess?.(_data, _variables, _context);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(_data, _variables, _context, undefined as unknown);
     },
     ...options,
   });
@@ -177,7 +177,7 @@ export function useUpdateSupplier(
           queryKey: supplierPurchasesKey(variables.id, {}),
         });
       }
-      options?.onSuccess?.(_data, variables, _context);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(_data, variables, _context, undefined as unknown);
     },
     ...options,
   });
@@ -194,7 +194,7 @@ export function useDeleteSupplier(
     onSuccess: (_data, id, _context) => {
       queryClient.invalidateQueries({ queryKey: SUPPLIERS_QUERY_KEY });
       if (id) queryClient.invalidateQueries({ queryKey: supplierDetailKey(id) });
-      options?.onSuccess?.(_data, id, _context);
+      (options?.onSuccess as ((a: unknown, b: unknown, c: unknown, d: unknown) => void) | undefined)?.(_data, id, _context, undefined as unknown);
     },
     ...options,
   });

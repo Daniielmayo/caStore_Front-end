@@ -28,7 +28,8 @@ interface CustomTooltipProps {
 const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    const total = payload[0].payload.totalPayloadSum || 1; // Simplified percentage
+    const total =
+      (payload[0].payload as StockByCategory & { totalPayloadSum?: number }).totalPayloadSum || 1;
     return (
       <div className={styles.tooltip}>
         <p className={styles.tooltipLabel}>{data.name}</p>
@@ -83,11 +84,14 @@ export function StockByCategoryChart({ data, isLoading }: StockByCategoryChartPr
               layout="vertical"
               verticalAlign="middle"
               align="right"
-              formatter={(value: string, entry: { payload?: StockByCategory }) => (
-                <span className={styles.legendLabel}>
-                  {value} ({entry.payload.productCount})
-                </span>
-              )}
+              formatter={(value: string, entry: unknown) => {
+                const payload = (entry as { payload?: StockByCategory }).payload;
+                return (
+                  <span className={styles.legendLabel}>
+                    {value} ({payload?.productCount ?? ''})
+                  </span>
+                );
+              }}
             />
           </PieChart>
         </ResponsiveContainer>

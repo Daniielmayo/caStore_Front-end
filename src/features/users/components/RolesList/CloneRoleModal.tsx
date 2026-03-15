@@ -2,9 +2,13 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+
+import { Button } from '@/src/components/ui/Button';
+import { Input } from '@/src/components/ui/Input';
+import { Modal } from '@/src/components/ui/Modal';
+
 import { Role } from '../../mockData';
-import { Button } from '../../../../components/ui/Button';
-import { Input } from '../../../../components/ui/Input';
+
 import styles from './RolesList.module.css';
 
 interface CloneRoleModalProps {
@@ -16,7 +20,12 @@ interface CloneRoleModalProps {
   isLoading?: boolean;
 }
 
-export function CloneRoleModal({ role, onClose, onClone, isLoading: externalLoading = false }: CloneRoleModalProps) {
+export function CloneRoleModal({
+  role,
+  onClose,
+  onClone,
+  isLoading: externalLoading = false,
+}: CloneRoleModalProps) {
   const router = useRouter();
   const [newName, setNewName] = useState(`Copia de ${role.name}`);
   const [internalLoading, setInternalLoading] = useState(false);
@@ -41,35 +50,35 @@ export function CloneRoleModal({ role, onClose, onClone, isLoading: externalLoad
   };
 
   return (
-    <div className={styles.modalOverlay}>
-      <div className={styles.modal}>
-        <div className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>Clonar rol</h3>
-          <p className={styles.modalSubtitle}>Clonando &quot;{role.name}&quot;</p>
-        </div>
-
-        <div className={styles.modalBody}>
-          <Input
-            label="Nombre del nuevo rol"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            required
-            autoFocus
-          />
-          <div className={styles.infoBox}>
-            El nuevo rol tendrá exactamente los mismos permisos que <strong>{role.name}</strong>. Podrás modificarlos después.
-          </div>
-        </div>
-
-        <div className={styles.modalFooter}>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Clonar rol"
+      footer={
+        <>
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>
           <Button onClick={handleClone} isLoading={isLoading} disabled={!newName.trim()}>
             Crear copia
           </Button>
+        </>
+      }
+    >
+      <p className={styles.modalSubtitle}>Clonando &quot;{role.name}&quot;</p>
+      <div className={styles.modalBody}>
+        <Input
+          label="Nombre del nuevo rol"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          required
+          autoFocus
+        />
+        <div className={styles.infoBox}>
+          El nuevo rol tendrá exactamente los mismos permisos que <strong>{role.name}</strong>.
+          Podrás modificarlos después.
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

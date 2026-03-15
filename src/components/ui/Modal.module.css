@@ -52,10 +52,41 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+.headerWarning {
+  border-bottom-color: var(--color-warning);
+  background-color: var(--color-warning-bg);
+}
+
+.headerDanger {
+  border-bottom-color: var(--color-error);
+  background-color: var(--color-error-bg);
+}
+
+.headerSuccess {
+  border-bottom-color: var(--color-success);
+  background-color: var(--color-success-bg);
+}
+
 .title {
   margin: 0;
   font-size: var(--text-lg);
   font-family: var(--font-display);
+  color: var(--color-dark);
+}
+
+.titleWarning {
+  color: var(--color-warning);
+}
+
+.titleDanger {
+  color: var(--color-error);
+}
+
+.titleSuccess {
+  color: var(--color-success);
+}
+
+.titleDefault {
   color: var(--color-dark);
 }
 
@@ -76,6 +107,18 @@
 .closeBtn:hover {
   background-color: var(--color-surface-alt);
   color: var(--color-dark);
+}
+
+.closeBtnWarning:hover {
+  color: var(--color-warning);
+}
+
+.closeBtnDanger:hover {
+  color: var(--color-error);
+}
+
+.closeBtnSuccess:hover {
+  color: var(--color-success);
 }
 
 .content {

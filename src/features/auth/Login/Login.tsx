@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import clsx from "clsx";
 import { useRouter } from "next/navigation";
+
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthForm } from "../components/AuthForm";
 import { useToast } from "../../../components/ui/Toast";
 import { useAuthStore } from "../../../store/auth.store";
+
 import styles from "./Login.module.css";
 
 const loginSchema = z.object({
@@ -22,7 +24,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { showToast } = useToast();
@@ -31,14 +33,22 @@ export default function Login() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
 
+  const email = watch("email");
+  const password = watch("password");
+
+  useEffect(() => {
+    if (serverError) setServerError(null);
+  }, [email, password]);
+
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
-    setError(null);
+    setServerError(null);
     try {
       await loginAction(data);
       const user = useAuthStore.getState().user;
@@ -50,14 +60,7 @@ export default function Login() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error al iniciar sesión.";
-      if (message.includes("401") || message.toLowerCase().includes("incorrect")) {
-        setError("Credenciales incorrectas. Intenta de nuevo.");
-      } else if (message.toLowerCase().includes("desactivada")) {
-        setError("Tu cuenta está desactivada.");
-      } else {
-        setError("Error al iniciar sesión. Intenta de nuevo.");
-      }
-      showToast({ message: "Error al iniciar sesión", type: "error" });
+      setServerError(message);
     } finally {
       setIsLoading(false);
     }
@@ -130,10 +133,10 @@ export default function Login() {
           )}
         </div>
 
-        {error && (
+        {serverError && (
           <div className={styles.alertError}>
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <p className="m-0 break-words">{error}</p>
+            <AlertCircle className={styles.alertIcon} aria-hidden />
+            <p className={styles.errorBannerText}>{serverError}</p>
           </div>
         )}
 

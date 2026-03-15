@@ -23,10 +23,11 @@ import clsx from 'clsx';
 import styles from './SupplierProfile.module.css';
 import type { SupplierWithStatsApi, SupplierTypeApi } from '../../types/suppliers.types';
 import { Button } from '@/src/components/ui/Button';
-import { useSupplierPurchases, useDeleteSupplier } from '../../hooks/useSuppliers';
+import { Modal } from '@/src/components/ui/Modal';
 import { useToast } from '@/src/components/ui/Toast';
 import { Pagination } from '@/src/components/tables/Pagination';
 import { Input } from '@/src/components/ui/Input';
+import { useSupplierPurchases, useDeleteSupplier } from '../../hooks/useSuppliers';
 
 const TYPE_LABELS: Record<SupplierTypeApi, string> = {
   NATIONAL: 'Nacional',
@@ -51,14 +52,19 @@ const SOFT_DELETE_MESSAGE =
 
 export function SupplierProfile({ supplier }: SupplierProfileProps) {
   const [activeTab, setActiveTab] = useState<'general' | 'history' | 'documents'>('general');
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const router = useRouter();
   const { showToast } = useToast();
   const deleteMutation = useDeleteSupplier();
 
-  const handleDelete = () => {
-    if (!window.confirm(SOFT_DELETE_MESSAGE)) return;
+  const handleDeleteClick = () => {
+    setShowDeactivateModal(true);
+  };
+
+  const handleConfirmDeactivate = () => {
     deleteMutation.mutate(supplier.id, {
       onSuccess: () => {
+        setShowDeactivateModal(false);
         showToast({
           message: 'Proveedor desactivado. El historial de compras se preserva.',
           type: 'success',
@@ -66,6 +72,7 @@ export function SupplierProfile({ supplier }: SupplierProfileProps) {
         router.push('/suppliers');
       },
       onError: (err) => {
+        setShowDeactivateModal(false);
         showToast({ message: err.message || 'Error al desactivar proveedor', type: 'error' });
       },
     });
@@ -131,7 +138,7 @@ export function SupplierProfile({ supplier }: SupplierProfileProps) {
           <Button
             variant="secondary"
             className={styles.deleteBtn}
-            onClick={handleDelete}
+            onClick={handleDeleteClick}
             disabled={deleteMutation.isPending}
           >
             <Trash2 size={18} />
@@ -171,6 +178,30 @@ export function SupplierProfile({ supplier }: SupplierProfileProps) {
           {activeTab === 'documents' && <DocumentsList />}
         </div>
       </div>
+
+      <Modal
+        isOpen={showDeactivateModal}
+        onClose={() => setShowDeactivateModal(false)}
+        title="Desactivar proveedor"
+        variant="warning"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowDeactivateModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleConfirmDeactivate}
+              disabled={deleteMutation.isPending}
+              isLoading={deleteMutation.isPending}
+            >
+              Confirmar desactivación
+            </Button>
+          </>
+        }
+      >
+        <p className={styles.modalBodyText}>{SOFT_DELETE_MESSAGE}</p>
+      </Modal>
     </div>
   );
 }
