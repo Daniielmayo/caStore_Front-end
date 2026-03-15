@@ -11,6 +11,8 @@ import { AuthForm } from "../components/AuthForm";
 import styles from "./Login.module.css";
 import { useRouter } from "next/navigation";
 
+import { useAuthStore } from "../../../store/auth.store";
+
 const loginSchema = z.object({
   email: z.string().email("Ingresa un correo electrónico válido"),
   password: z.string().min(1, "La contraseña es obligatoria"),
@@ -23,6 +25,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const loginAction = useAuthStore((state) => state.loginAction);
 
   const {
     register,
@@ -36,21 +39,25 @@ export default function Login() {
     setIsLoading(true);
     setError(null);
     try {
-      // Simular llamada a API
-      await new Promise((resolve, reject) => {
-        setTimeout(() => {
-          if (data.email === "error@castore.com") {
-            reject(new Error("Credenciales incorrectas. Intenta de nuevo."));
-          } else {
-            resolve(true);
-          }
-        }, 1500);
-      });
-      // Redirect al dashboard o manejar éxito
-      console.log("Login exitoso", data);
-      router.push("/dashboard");
+      await loginAction(data);
+      
+      // Obtener el usuario del estado para verificar firstLogin
+      const user = useAuthStore.getState().user;
+      
+      if (user?.firstLogin) {
+        router.push("/change-password");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
-      setError(err.message || "Ocurrió un error inesperado");
+      // Mapeo de errores especificado
+      if (err.message.includes("401") || err.message.toLowerCase().includes("incorrect")) {
+        setError("Credenciales incorrectas. Intenta de nuevo.");
+      } else if (err.message.includes("403") || err.message.toLowerCase().includes("deactivated")) {
+        setError("Tu cuenta está desactivada.");
+      } else {
+        setError("Error al iniciar sesión. Intenta de nuevo.");
+      }
     } finally {
       setIsLoading(false);
     }

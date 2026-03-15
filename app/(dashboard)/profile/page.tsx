@@ -1,13 +1,19 @@
-import { ProfilePage } from "@/src/features/profile/components/ProfilePage/ProfilePage";
-import { PageWrapper } from "@/src/components/layout/PageWrapper";
+'use client';
 
-export default function Profile() {
+import React from 'react';
+import { ProtectedPage } from '@/src/features/auth/components/ProtectedPage';
+import { PageWrapper } from '@/src/components/layout/PageWrapper';
+import { ProfilePage } from '@/src/features/profile/components/ProfilePage/ProfilePage';
+
+export default function ProfileRoute() {
   return (
-    <PageWrapper
-      title="Mi perfil"
-      subtitle="Gestiona tu información personal y seguridad"
-    >
-      <ProfilePage />
-    </PageWrapper>
+    <ProtectedPage module="profile">
+      <PageWrapper
+        title="Mi Perfil"
+        subtitle="Gestiona tu información personal y seguridad"
+      >
+        <ProfilePage />
+      </PageWrapper>
+    </ProtectedPage>
   );
 }

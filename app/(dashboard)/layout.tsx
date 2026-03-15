@@ -1,10 +1,24 @@
-import { DashboardLayout } from "@/src/features/dashboard/components/DashboardLayout/DashboardLayout";
-import { ToastProvider } from "@/src/components/ui/Toast";
+'use client';
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+import React from 'react';
+import { Sidebar } from '../../src/components/layout/Sidebar/Sidebar';
+import { Topbar } from '../../src/components/layout/Topbar/Topbar';
+import styles from './layout.module.css';
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <ToastProvider>
-      <DashboardLayout>{children}</DashboardLayout>
-    </ToastProvider>
+    <div className={styles.shell}>
+      <Sidebar />
+      <div className={styles.main}>
+        <Topbar />
+        <main className={styles.content}>
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }
