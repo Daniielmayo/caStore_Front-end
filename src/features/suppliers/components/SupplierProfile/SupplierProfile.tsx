@@ -1,66 +1,119 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Building2, 
-  MapPin, 
-  Mail, 
-  Phone, 
-  Globe, 
-  Calendar, 
-  CreditCard, 
-  User, 
+import {
+  MapPin,
+  Mail,
+  Phone,
+  Globe,
+  Calendar,
+  CreditCard,
+  User,
   Edit3,
   FileText,
   History,
   Info,
   Package,
   ExternalLink,
-  Download,
-  Trash2
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
-import { Supplier } from '../../mockData';
 import styles from './SupplierProfile.module.css';
-import { Button } from '../../../../components/ui/Button';
+import type { SupplierWithStatsApi, SupplierTypeApi } from '../../types/suppliers.types';
+import { Button } from '@/src/components/ui/Button';
+import { useSupplierPurchases, useDeleteSupplier } from '../../hooks/useSuppliers';
+import { useToast } from '@/src/components/ui/Toast';
+import { Pagination } from '@/src/components/tables/Pagination';
+import { Input } from '@/src/components/ui/Input';
+
+const TYPE_LABELS: Record<SupplierTypeApi, string> = {
+  NATIONAL: 'Nacional',
+  INTERNATIONAL: 'Internacional',
+  MANUFACTURER: 'Fabricante',
+  DISTRIBUTOR: 'Distribuidor',
+};
+
+const CONTRIBUTOR_LABELS: Record<string, string> = {
+  LARGE: 'Gran Contribuyente',
+  COMMON: 'Persona Jurídica',
+  SIMPLIFIED: 'Régimen Simplificado',
+  NON_CONTRIBUTOR: 'Persona Natural',
+};
 
 interface SupplierProfileProps {
-  supplier: Supplier;
+  supplier: SupplierWithStatsApi;
 }
+
+const SOFT_DELETE_MESSAGE =
+  'El proveedor se desactivará y ya no aparecerá en el listado activo. El historial de compras se preserva. ¿Continuar?';
 
 export function SupplierProfile({ supplier }: SupplierProfileProps) {
   const [activeTab, setActiveTab] = useState<'general' | 'history' | 'documents'>('general');
+  const router = useRouter();
+  const { showToast } = useToast();
+  const deleteMutation = useDeleteSupplier();
 
-  const initials = supplier.commercialName
+  const handleDelete = () => {
+    if (!window.confirm(SOFT_DELETE_MESSAGE)) return;
+    deleteMutation.mutate(supplier.id, {
+      onSuccess: () => {
+        showToast({
+          message: 'Proveedor desactivado. El historial de compras se preserva.',
+          type: 'success',
+        });
+        router.push('/suppliers');
+      },
+      onError: (err) => {
+        showToast({ message: err.message || 'Error al desactivar proveedor', type: 'error' });
+      },
+    });
+  };
+
+  const initials = supplier.tradeName
     .split(' ')
-    .map(n => n[0])
+    .map((n) => n[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
 
   return (
     <div className={styles.container}>
-      {/* Profile Header Card */}
       <div className={styles.headerCard}>
         <div className={styles.headerMain}>
           <div className={styles.avatar}>{initials}</div>
           <div className={styles.headerInfo}>
             <div className={styles.titleRow}>
-              <h1 className={styles.commercialName}>{supplier.commercialName}</h1>
+              <h1 className={styles.commercialName}>{supplier.tradeName}</h1>
               <span className={clsx(styles.typeBadge, getBadgeClass(supplier.type))}>
-                {supplier.type}
+                {TYPE_LABELS[supplier.type]}
               </span>
             </div>
-            <p className={styles.businessName}>{supplier.businessName}</p>
+            <p className={styles.businessName}>{supplier.legalName}</p>
             <div className={styles.compactGrid}>
-              <div className={styles.compactItem}><MapPin size={14} /> {supplier.city}, {supplier.country}</div>
-              <div className={styles.compactItem}><Mail size={14} /> {supplier.email}</div>
-              <div className={styles.compactItem}><Phone size={14} /> {supplier.phone}</div>
+              <div className={styles.compactItem}>
+                <MapPin size={14} /> {supplier.city}, {supplier.country}
+              </div>
+              {supplier.email && (
+                <div className={styles.compactItem}>
+                  <Mail size={14} /> {supplier.email}
+                </div>
+              )}
+              {supplier.phone && (
+                <div className={styles.compactItem}>
+                  <Phone size={14} /> {supplier.phone}
+                </div>
+              )}
               {supplier.website && (
                 <div className={styles.compactItem}>
-                  <Globe size={14} /> 
-                  <a href={supplier.website} target="_blank" rel="noopener noreferrer" className={styles.link}>
+                  <Globe size={14} />
+                  <a
+                    href={supplier.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.link}
+                  >
                     Sitio web <ExternalLink size={12} />
                   </a>
                 </div>
@@ -75,25 +128,36 @@ export function SupplierProfile({ supplier }: SupplierProfileProps) {
               Editar proveedor
             </Button>
           </Link>
+          <Button
+            variant="secondary"
+            className={styles.deleteBtn}
+            onClick={handleDelete}
+            disabled={deleteMutation.isPending}
+          >
+            <Trash2 size={18} />
+            Desactivar proveedor
+          </Button>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
       <div className={styles.tabsRoot}>
         <div className={styles.tabsList}>
-          <button 
+          <button
+            type="button"
             className={clsx(styles.tabTrigger, { [styles.active]: activeTab === 'general' })}
             onClick={() => setActiveTab('general')}
           >
             <Info size={18} /> Información general
           </button>
-          <button 
+          <button
+            type="button"
             className={clsx(styles.tabTrigger, { [styles.active]: activeTab === 'history' })}
             onClick={() => setActiveTab('history')}
           >
             <History size={18} /> Historial de compras
           </button>
-          <button 
+          <button
+            type="button"
             className={clsx(styles.tabTrigger, { [styles.active]: activeTab === 'documents' })}
             onClick={() => setActiveTab('documents')}
           >
@@ -103,160 +167,230 @@ export function SupplierProfile({ supplier }: SupplierProfileProps) {
 
         <div className={styles.tabContent}>
           {activeTab === 'general' && <GeneralInfo supplier={supplier} />}
-          {activeTab === 'history' && <PurchaseHistory supplier={supplier} />}
-          {activeTab === 'documents' && <DocumentsList supplier={supplier} />}
+          {activeTab === 'history' && <PurchaseHistoryTab supplierId={supplier.id} />}
+          {activeTab === 'documents' && <DocumentsList />}
         </div>
       </div>
     </div>
   );
 }
 
-function GeneralInfo({ supplier }: { supplier: Supplier }) {
+function GeneralInfo({ supplier }: { supplier: SupplierWithStatsApi }) {
   return (
     <div className={styles.infoTab}>
       <div className={styles.infoCols}>
         <div className={styles.infoSection}>
           <h3 className={styles.sectionTitle}>Datos de identificación</h3>
           <div className={styles.detailList}>
-            <DetailItem label="NIT" value={supplier.nit} />
-            <DetailItem label="Tipo de proveedor" value={supplier.type} />
-            <DetailItem label="Tipo de contribuyente" value={supplier.taxpayerType} />
-            <DetailItem label="Fecha de registro" value={new Date(supplier.createdAt).toLocaleDateString()} />
+            <DetailItem label="NIT" value={supplier.taxId} />
+            <DetailItem label="Tipo de proveedor" value={TYPE_LABELS[supplier.type]} />
+            <DetailItem
+              label="Tipo de contribuyente"
+              value={CONTRIBUTOR_LABELS[supplier.contributorType] ?? supplier.contributorType}
+            />
+            <DetailItem
+              label="Fecha de registro"
+              value={new Date(supplier.createdAt).toLocaleDateString('es-CO')}
+            />
           </div>
 
           <h3 className={styles.sectionTitle}>Ubicación</h3>
           <div className={styles.detailList}>
             <DetailItem label="País" value={supplier.country} />
-            <DetailItem label="Departamento" value={supplier.department} />
+            <DetailItem label="Departamento" value={supplier.state ?? '—'} />
             <DetailItem label="Ciudad" value={supplier.city} />
-            <DetailItem label="Dirección" value={supplier.address} />
+            <DetailItem label="Dirección" value={supplier.address ?? '—'} />
           </div>
         </div>
 
         <div className={styles.infoSection}>
           <h3 className={styles.sectionTitle}>Datos comerciales</h3>
           <div className={styles.detailList}>
-            <DetailItem icon={<Calendar size={16} />} label="Condiciones de pago" value={supplier.paymentTerms} />
-            <DetailItem icon={<CreditCard size={16} />} label="Moneda de negociación" value={supplier.currency} />
-            <DetailItem icon={<User size={16} />} label="Persona de contacto" value={supplier.contactPerson} />
-            <DetailItem icon={<Mail size={16} />} label="Correo contacto" value={supplier.email} />
-            <DetailItem icon={<Phone size={16} />} label="Teléfono contacto" value={supplier.phone} />
+            <DetailItem
+              icon={<Calendar size={16} />}
+              label="Condiciones de pago"
+              value={supplier.paymentTerms ?? '—'}
+            />
+            <DetailItem
+              icon={<CreditCard size={16} />}
+              label="Moneda de negociación"
+              value={supplier.currency}
+            />
+            <DetailItem
+              icon={<User size={16} />}
+              label="Persona de contacto"
+              value={supplier.contactName ?? '—'}
+            />
+            <DetailItem icon={<Mail size={16} />} label="Correo contacto" value={supplier.email ?? '—'} />
+            <DetailItem icon={<Phone size={16} />} label="Teléfono contacto" value={supplier.phone ?? '—'} />
           </div>
 
-          {supplier.observations && (
+          {supplier.notes && (
             <div className={styles.observationsContainer}>
               <h3 className={styles.sectionTitle}>Observaciones</h3>
-              <div className={styles.obsCard}>{supplier.observations}</div>
+              <div className={styles.obsCard}>{supplier.notes}</div>
             </div>
           )}
         </div>
       </div>
 
-      {supplier.stats && (
-        <div className={styles.statsSection}>
-          <h3 className={styles.sectionTitle}>Estadísticas de compras</h3>
-          <div className={styles.statsGrid}>
-            <StatCard label="Órdenes de compra" value={supplier.stats.totalOrders.toString()} />
-            <StatCard label="Unidades recibidas" value={supplier.stats.totalUnits.toString()} />
-            <StatCard label="Valor total acumulado" value={formatCOP(supplier.stats.totalValue)} />
-            <div className={styles.mostBoughtCard}>
-               <span className={styles.statLabel}>Producto más comprado</span>
-               <div className={styles.mbProduct}>
-                  <div className={styles.mbIcon}><Package size={20} /></div>
-                  <span className={styles.statValue}>{supplier.stats.mostBoughtProduct}</span>
-               </div>
+      <div className={styles.statsSection}>
+        <h3 className={styles.sectionTitle}>Estadísticas de compras</h3>
+        <div className={styles.statsGrid}>
+          <StatCard label="Movimientos de compra" value={String(supplier.totalMovements)} />
+          <StatCard label="Unidades recibidas" value={String(supplier.totalUnits)} />
+          <StatCard
+            label="Última compra"
+            value={
+              supplier.lastPurchaseDate
+                ? new Date(supplier.lastPurchaseDate).toLocaleDateString('es-CO')
+                : '—'
+            }
+          />
+          <div className={styles.mostBoughtCard}>
+            <span className={styles.statLabel}>Resumen</span>
+            <div className={styles.mbProduct}>
+              <div className={styles.mbIcon}>
+                <Package size={20} />
+              </div>
+              <span className={styles.statValue}>
+                {supplier.totalMovements} movimientos · {supplier.totalUnits} unidades
+              </span>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PurchaseHistoryTab({ supplierId }: { supplierId: string }) {
+  const [page, setPage] = useState(1);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const limit = 10;
+
+  const { data: purchases, pagination, isLoading } = useSupplierPurchases(
+    supplierId,
+    { page, limit, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined },
+    { enabled: true }
+  );
+
+  const hasFilters = dateFrom || dateTo;
+  const empty = !isLoading && purchases.length === 0;
+
+  return (
+    <div className={styles.historyTab}>
+      <div className={styles.filtersRow}>
+        <Input
+          type="date"
+          label="Desde"
+          value={dateFrom}
+          onChange={(e) => {
+            setDateFrom(e.target.value);
+            setPage(1);
+          }}
+        />
+        <Input
+          type="date"
+          label="Hasta"
+          value={dateTo}
+          onChange={(e) => {
+            setDateTo(e.target.value);
+            setPage(1);
+          }}
+        />
+      </div>
+
+      {empty ? (
+        <div className={styles.emptyState}>
+          <div className={styles.emptyIcon}>
+            <History size={48} />
+          </div>
+          <h3>Sin historial de compras</h3>
+          <p>
+            {hasFilters
+              ? 'No hay registros en el rango de fechas seleccionado.'
+              : 'Aún no se han registrado recepciones de este proveedor.'}
+          </p>
+          {!hasFilters && (
+            <Link href="/movements/new">
+              <Button>Registrar primera entrada</Button>
+            </Link>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Producto</th>
+                  <th>Cantidad</th>
+                  <th>Precio Und.</th>
+                  <th>Total</th>
+                  <th>Documento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {purchases.map((row) => (
+                  <tr key={row.id} className={styles.tableRow}>
+                    <td>{new Date(row.createdAt).toLocaleDateString('es-CO')}</td>
+                    <td>
+                      <div className={styles.productCell}>
+                        <span>{row.productName}</span>
+                        <small>{row.productSku}</small>
+                      </div>
+                    </td>
+                    <td>{row.quantity}</td>
+                    <td>{row.unitCost != null ? formatCOP(row.unitCost) : '—'}</td>
+                    <td>{row.totalCost != null ? formatCOP(row.totalCost) : '—'}</td>
+                    <td>{row.docReference ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {pagination && pagination.total > limit && (
+            <div className={styles.paginationBox}>
+              <Pagination
+                currentPage={pagination.page}
+                totalCount={pagination.total}
+                pageSize={pagination.limit}
+                onPageChange={setPage}
+                onPageSizeChange={() => {}}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function PurchaseHistory({ supplier }: { supplier: Supplier }) {
-  // Empty state logic as per requirement for non-established suppliers in mock
-  if (!supplier.stats) {
-    return (
-      <div className={styles.emptyState}>
-        <div className={styles.emptyIcon}><History size={48} /></div>
-        <h3>Sin historial de compras</h3>
-        <p>Aún no se han registrado recepciones de este proveedor.</p>
-        <Link href="/movements/new">
-          <Button>Registrar primera entrada</Button>
-        </Link>
-      </div>
-    );
-  }
-
+function DocumentsList() {
   return (
-    <div className={styles.historyTab}>
-      <div className={styles.tableWrapper}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Producto</th>
-              <th>Cantidad</th>
-              <th>Precio Und.</th>
-              <th>Total</th>
-              <th>Documento</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className={styles.tableRow}>
-              <td>12/03/2024</td>
-              <td>
-                <div className={styles.productCell}>
-                  <span>{supplier.stats.mostBoughtProduct}</span>
-                  <small>SKU-AUTO-123</small>
-                </div>
-              </td>
-              <td>50</td>
-              <td>{formatCOP(250000)}</td>
-              <td>{formatCOP(12500000)}</td>
-              <td>FAC-00129</td>
-            </tr>
-            {/* Mocked row */}
-          </tbody>
-        </table>
+    <div className={styles.emptyState}>
+      <div className={styles.emptyIcon}>
+        <FileText size={48} />
       </div>
+      <h3>Sin documentos</h3>
+      <p>No hay archivos adjuntos para este proveedor.</p>
+      <Button variant="secondary">Cargar primer documento</Button>
     </div>
   );
 }
 
-function DocumentsList({ supplier }: { supplier: Supplier }) {
-  if (!supplier.documents || supplier.documents.length === 0) {
-    return (
-      <div className={styles.emptyState}>
-        <div className={styles.emptyIcon}><FileText size={48} /></div>
-        <h3>Sin documentos</h3>
-        <p>No hay archivos adjuntos para este proveedor.</p>
-        <Button variant="secondary">Cargar primer documento</Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.docsGrid}>
-      {supplier.documents.map((doc, idx) => (
-        <div key={idx} className={styles.docCard}>
-          <div className={styles.docIcon}><FileText size={32} /></div>
-          <div className={styles.docInfo}>
-            <span className={styles.docName}>{doc.name}</span>
-            <span className={styles.docType}>{doc.type}</span>
-            <span className={styles.docDate}>Cargado: {doc.uploadDate}</span>
-          </div>
-          <div className={styles.docActions}>
-            <button className={styles.docBtn} title="Descargar"><Download size={16} /></button>
-            <button className={styles.docBtn} title="Eliminar"><Trash2 size={16} /></button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DetailItem({ icon, label, value }: { icon?: React.ReactNode; label: string; value: string }) {
+function DetailItem({
+  icon,
+  label,
+  value,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <div className={styles.detailItem}>
       <div className={styles.itemLabelBox}>
@@ -277,15 +411,24 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getBadgeClass(type: string) {
+function getBadgeClass(type: SupplierTypeApi): string {
   switch (type) {
-    case 'Nacional': return styles.badgeBlue;
-    case 'Internacional': return styles.badgeGreen;
-    case 'Fabricante': return styles.badgeOrange;
-    case 'Distribuidor': return styles.badgePurple;
-    default: return '';
+    case 'NATIONAL':
+      return styles.badgeBlue;
+    case 'INTERNATIONAL':
+      return styles.badgeGreen;
+    case 'MANUFACTURER':
+      return styles.badgeOrange;
+    case 'DISTRIBUTOR':
+      return styles.badgePurple;
+    default:
+      return '';
   }
 }
 
-const formatCOP = (val: number) => 
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
+const formatCOP = (val: number) =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(val);

@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useToast } from '../../../../components/ui/Toast';
-import { Switch } from '../../../../components/ui/Switch';
+import { useToast } from '@/src/components/ui/Toast';
+import { Switch } from '@/src/components/ui/Switch';
 import styles from './ProfilePage.module.css';
 
 export function NotificationsSection() {

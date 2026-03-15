@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Utility to calculate NIT Verification Digit (Colombia)
+ * Dígito de verificación NIT (Colombia).
  */
 export const calculateNITVerificationDigit = (nit: string): number => {
   const nitStr = nit.trim().replace(/\D/g, '');
@@ -20,36 +20,39 @@ export const calculateNITVerificationDigit = (nit: string): number => {
   return 11 - remainder;
 };
 
-export const supplierStep1Schema = z.object({
-  businessName: z.string().min(1, 'La razón social es requerida').max(100),
-  commercialName: z.string().min(1, 'El nombre comercial es requerido').max(100),
-  nit: z.string().min(5, 'El NIT debe tener al menos 5 dígitos').max(15, 'NIT demasiado largo'),
-  type: z.enum(['Nacional', 'Internacional', 'Fabricante', 'Distribuidor'], {
-    message: 'Debe seleccionar un tipo de proveedor',
-  }),
-  taxpayerType: z.enum(['Persona Natural', 'Persona Jurídica', 'Gran Contribuyente', 'Régimen Simplificado'], {
-    message: 'Debe seleccionar un tipo de contribuyente',
-  }),
-  country: z.string().min(1, 'El país es requerido'),
-  department: z.string().min(1, 'El departamento es requerido'),
-  city: z.string().min(1, 'La ciudad es requerida'),
-  address: z.string().min(1, 'La dirección es requerida'),
-  phone: z.string().min(7, 'Teléfono inválido'),
-  email: z.string().email('Correo electrónico inválido'),
-  contactPerson: z.string().min(1, 'El nombre de contacto es requerido'),
+const supplierTypeEnum = z.enum(['NATIONAL', 'INTERNATIONAL', 'MANUFACTURER', 'DISTRIBUTOR'], {
+  message: 'Debe seleccionar un tipo de proveedor',
+});
+const contributorTypeEnum = z.enum(['LARGE', 'COMMON', 'SIMPLIFIED', 'NON_CONTRIBUTOR'], {
+  message: 'Debe seleccionar un tipo de contribuyente',
 });
 
+/** Paso 1: información legal y de contacto (alineado con backend). */
+export const supplierStep1Schema = z.object({
+  legalName: z.string().min(1, 'La razón social es requerida').max(200),
+  tradeName: z.string().min(1, 'El nombre comercial es requerido').max(200),
+  taxId: z.string().min(1, 'El NIT/RUC es requerido').max(20),
+  type: supplierTypeEnum,
+  contributorType: contributorTypeEnum,
+  country: z.string().min(1, 'El país es requerido').max(100),
+  state: z.string().max(100).optional().nullable(),
+  city: z.string().min(1, 'La ciudad es requerida').max(100),
+  address: z.string().max(300).optional().nullable(),
+  phone: z.string().max(20).optional().nullable(),
+  email: z.string().email('Correo electrónico inválido').max(255).optional().nullable(),
+  contactName: z.string().max(150).optional().nullable(),
+});
+
+/** Paso 2: condiciones comerciales. */
 export const supplierStep2Schema = z.object({
-  paymentTerms: z.enum(['Contado', '30 días', '60 días', '90 días'], {
-    message: 'Debe seleccionar condiciones de pago',
-  }),
-  currency: z.enum(['COP', 'USD', 'EUR'], {
-    message: 'Debe seleccionar la moneda',
-  }),
-  website: z.string().url('URL inválida').optional().or(z.literal('')),
-  observations: z.string().max(500, 'Máximo 500 caracteres').optional(),
+  paymentTerms: z.string().max(50).optional().nullable(),
+  currency: z.string().max(10).default('COP'),
+  website: z.union([z.string().url('URL inválida'), z.literal('')]).optional().nullable(),
+  notes: z.string().max(500).optional().nullable(),
 });
 
 export const supplierSchema = supplierStep1Schema.merge(supplierStep2Schema);
 
 export type SupplierFormData = z.infer<typeof supplierSchema>;
+export type SupplierStep1Data = z.infer<typeof supplierStep1Schema>;
+export type SupplierStep2Data = z.infer<typeof supplierStep2Schema>;

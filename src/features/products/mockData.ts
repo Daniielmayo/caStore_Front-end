@@ -1,3 +1,11 @@
+import type {
+  ProductApi,
+  ProductStatsApi,
+  GetProductsParams,
+  PaginatedProductsResponse,
+} from './types/products.types';
+
+/** Vista de producto para listado (compatible con UI existente). */
 export interface Product {
   id: string;
   sku: string;
@@ -5,7 +13,7 @@ export interface Product {
   image: string;
   categoryName: string;
   parentCategoryName?: string;
-  createdAt: string; // ISO date
+  createdAt: string;
   price: number;
   stock: number;
   minStock: number;
@@ -14,6 +22,97 @@ export interface Product {
   locationId?: string;
   hasExpiration?: boolean;
   expirationDate?: string;
+}
+
+export function productApiToView(p: ProductApi): Product {
+  return {
+    id: p.id,
+    sku: p.sku,
+    name: p.name,
+    image: p.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=NA',
+    categoryName: p.categoryName,
+    parentCategoryName: p.parentCategoryName ?? undefined,
+    createdAt: p.createdAt,
+    price: p.price,
+    stock: p.currentStock,
+    minStock: p.minStock,
+    status: p.status.toLowerCase() as Product['status'],
+    description: p.description ?? undefined,
+    locationId: p.locationId ?? undefined,
+    hasExpiration: p.hasExpiry,
+    expirationDate: p.expiryDate ?? undefined,
+  };
+}
+
+export const MOCK_PRODUCT_STATS: ProductStatsApi = {
+  totalActive: 14,
+  totalInactive: 3,
+  totalDiscontinued: 1,
+  lowStockCount: 5,
+  outOfStockCount: 3,
+  expiringCount: 2,
+};
+
+/** Genera respuesta paginada mock a partir de mockProducts y filtros. */
+export function getMockPaginatedProducts(
+  params: GetProductsParams
+): PaginatedProductsResponse {
+  const page = params.page ?? 1;
+  const limit = params.limit ?? 10;
+  let list = [...mockProducts];
+
+  const search = (params.search ?? '').trim().toLowerCase();
+  if (search) {
+    list = list.filter(
+      (p) =>
+        p.name.toLowerCase().includes(search) ||
+        p.sku.toLowerCase().includes(search) ||
+        p.categoryName.toLowerCase().includes(search)
+    );
+  }
+  if (params.status && params.status !== 'all') {
+    const s = params.status.toLowerCase() as Product['status'];
+    list = list.filter((p) => p.status === s);
+  }
+  if (params.lowStock === true) {
+    list = list.filter((p) => p.stock <= p.minStock);
+  }
+
+  const total = list.length;
+  const start = (page - 1) * limit;
+  const data = list.slice(start, start + limit);
+  const totalPages = Math.ceil(total / limit) || 1;
+
+  return {
+    data: data.map((p) => ({
+      ...p,
+      currentStock: p.stock,
+      hasExpiry: p.hasExpiration ?? false,
+      expiryDate: p.expirationDate ?? null,
+      status: p.status.toUpperCase() as 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED',
+      imageUrl: p.image,
+      description: p.description ?? null,
+      locationId: p.locationId ?? null,
+      createdAt: p.createdAt,
+      updatedAt: p.createdAt,
+      categoryId: '',
+      parentCategoryName: p.parentCategoryName ?? null,
+      locationName: null,
+      locationCode: null,
+    })) as ProductApi[],
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+      nextPage: page < totalPages ? page + 1 : null,
+      prevPage: page > 1 ? page - 1 : null,
+      from: total === 0 ? 0 : start + 1,
+      to: total === 0 ? 0 : Math.min(start + data.length, total),
+    },
+  };
 }
 
 export const mockProducts: Product[] = [

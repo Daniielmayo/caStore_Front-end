@@ -1,14 +1,12 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { RefreshCw, Plus } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { ProtectedPage } from '@/src/features/auth/components/ProtectedPage';
 import { PageWrapper } from '@/src/components/layout/PageWrapper';
 import { MockWarning } from '@/src/components/common/MockWarning/MockWarning';
 import { EmptyState } from '@/src/components/common/EmptyState/EmptyState';
 import { SkeletonTable } from '@/src/components/common/Skeleton/SkeletonTable';
-import { Button } from '@/src/components/ui/Button';
 import { useCategories } from '@/src/features/categories/hooks/useCategories';
 import { CategoriesManagement } from '@/src/features/categories/components/CategoryManagement/CategoriesManagement';
 import { AlertCircle, FolderTree } from 'lucide-react';
@@ -43,23 +41,15 @@ export default function CategoriesPage() {
           title="Gestión de Categorías"
           subtitle="Organiza tu inventario por tipo de parte automotriz"
           actions={
-            <>
-              <button
-                type="button"
-                className={clsx(styles.refreshBtn, isLoading && styles.spinning)}
-                onClick={refresh}
-                disabled={isLoading}
-              >
-                <RefreshCw size={18} />
-                <span>Actualizar</span>
-              </button>
-              <Link href="/categories/new" passHref legacyBehavior>
-                <Button variant="primary">
-                  <Plus size={16} />
-                  Nueva categoría
-                </Button>
-              </Link>
-            </>
+            <button
+              type="button"
+              className={clsx(styles.refreshBtn, isLoading && styles.spinning)}
+              onClick={refresh}
+              disabled={isLoading}
+            >
+              <RefreshCw size={18} />
+              <span>Actualizar</span>
+            </button>
           }
         >
           {isUsingMock && <MockWarning />}

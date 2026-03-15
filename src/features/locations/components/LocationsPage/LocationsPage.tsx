@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   Map as MapIcon,
   LayoutList,
@@ -8,36 +8,67 @@ import {
   Warehouse,
   Box,
   CheckCircle2,
-  Search
+  Search,
 } from 'lucide-react';
 import clsx from 'clsx';
+import type { Location } from '../../types/locations.types';
 import { PageWrapper } from '@/src/components/layout/PageWrapper';
 import { Button } from '@/src/components/ui/Button';
 import { Select } from '@/src/components/ui/Select';
-import { mockLocations, Location } from '../../mockData';
-
 import { LocationMap } from '../LocationMap/LocationMap';
 import { LocationDetailDrawer } from '../LocationDetail/LocationDetailDrawer';
 import { LocationFormDrawer } from '../LocationForm/LocationFormDrawer';
+import { LocationList } from './LocationList';
+import { useLocationsTree, useDeleteLocation } from '../../hooks/useLocations';
+import { useToast } from '@/src/components/ui/Toast';
 import styles from './LocationsPage.module.css';
-import { LocationList } from '@/src/features/locations/components/LocationsPage/LocationList';
+
+function flattenTree(
+  nodes: { id: string; productCount: number; capacity?: number | null; children: unknown[] }[]
+): { productCount: number; capacity: number }[] {
+  const out: { productCount: number; capacity: number }[] = [];
+  const visit = (n: (typeof nodes)[0]) => {
+    out.push({
+      productCount: n.productCount,
+      capacity: n.capacity ?? 0,
+    });
+    n.children.forEach((c) => visit(c as (typeof nodes)[0]));
+  };
+  nodes.forEach(visit);
+  return out;
+}
 
 export default function LocationsPage() {
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const { showToast } = useToast();
+  const [viewMode, setViewMode] = React.useState<'map' | 'list'>('map');
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [typeFilter, setTypeFilter] = React.useState('all');
+  const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const [selectedLocation, setSelectedLocation] = React.useState<Location | null>(null);
+  const [editingLocation, setEditingLocation] = React.useState<Location | null>(null);
 
-  // Statistics
+  const { tree, isLoading: treeLoading, isUsingMock } = useLocationsTree();
+  const deleteMutation = useDeleteLocation({
+    onSuccess: () => {
+      showToast({ message: 'Ubicación desactivada correctamente', type: 'success' });
+      setSelectedLocation(null);
+    },
+    onError: (err) => {
+      showToast({
+        message: err?.message ?? 'No se pudo desactivar. Reasigna productos o desactiva primero las ubicaciones hijas.',
+        type: 'error',
+      });
+    },
+  });
+
   const stats = useMemo(() => {
-    const total = mockLocations.length;
-    const capacity = mockLocations.reduce((acc, loc) => acc + (loc.capacity || 0), 0);
-    const withProducts = mockLocations.filter(l => l.productCount > 0).length;
-    const available = mockLocations.filter(l => l.productCount === 0).length;
+    const flat = flattenTree(tree);
+    const total = flat.length;
+    const capacity = flat.reduce((acc, n) => acc + n.capacity, 0);
+    const withProducts = flat.filter((n) => n.productCount > 0).length;
+    const available = flat.filter((n) => n.productCount === 0).length;
     return { total, capacity, withProducts, available };
-  }, []);
+  }, [tree]);
 
   const handleEdit = (loc: Location) => {
     setEditingLocation(loc);
@@ -48,6 +79,10 @@ export default function LocationsPage() {
   const handleNew = () => {
     setEditingLocation(null);
     setIsFormOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(id);
   };
 
   return (
@@ -132,6 +167,7 @@ export default function LocationsPage() {
 
         <div className={styles.viewToggle}>
           <button
+            type="button"
             className={clsx(styles.toggleBtn, { [styles.active]: viewMode === 'map' })}
             onClick={() => setViewMode('map')}
           >
@@ -139,6 +175,7 @@ export default function LocationsPage() {
             <span>Vista Mapa</span>
           </button>
           <button
+            type="button"
             className={clsx(styles.toggleBtn, { [styles.active]: viewMode === 'list' })}
             onClick={() => setViewMode('list')}
           >
@@ -153,20 +190,27 @@ export default function LocationsPage() {
           <LocationList
             searchTerm={searchTerm}
             typeFilter={typeFilter}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            isDeleting={deleteMutation.isPending}
           />
         )}
         {viewMode === 'map' && (
           <LocationMap
-            onShelfClick={(loc) => setSelectedLocation(loc)}
+            tree={tree}
+            onShelfClick={setSelectedLocation}
+            isLoading={treeLoading}
           />
         )}
       </div>
 
       <LocationDetailDrawer
         location={selectedLocation}
+        tree={tree}
         onClose={() => setSelectedLocation(null)}
         onEdit={handleEdit}
-        onDelete={(id) => console.log('Delete', id)}
+        onDelete={handleDelete}
+        isDeleting={deleteMutation.isPending}
       />
 
       <LocationFormDrawer

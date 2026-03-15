@@ -1,37 +1,34 @@
 import React, { useState } from 'react';
-import { 
-  ChevronRight, 
-  ChevronDown, 
-  Folder, 
-  FolderOpen, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  CornerDownRight 
+import {
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FolderOpen,
+  Plus,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import styles from './CategoryTree.module.css';
-import { Category } from '../../mockData';
+import type { CategoryTreeItem } from '../../types/categories.types';
 import { Badge } from '../../../../components/ui/Badge';
 
 interface CategoryNodeProps {
-  category: Category;
-  subcategories: Category[];
+  node: CategoryTreeItem;
   isExpanded: boolean;
   onToggle: () => void;
-  onEdit: (cat: Category) => void;
-  onDelete: (cat: Category) => void;
-  onAddSub: (cat: Category) => void;
-  onSelect: (cat: Category) => void;
+  onEdit: (node: CategoryTreeItem) => void;
+  onDelete: (node: CategoryTreeItem) => void;
+  onAddSub: (node: CategoryTreeItem) => void;
+  onSelect: (node: CategoryTreeItem) => void;
   level?: number;
   highlighted?: boolean;
   dimmed?: boolean;
 }
 
-export function CategoryNode({ 
-  category, 
-  subcategories, 
-  isExpanded, 
+export function CategoryNode({
+  node,
+  isExpanded,
   onToggle,
   onEdit,
   onDelete,
@@ -39,25 +36,26 @@ export function CategoryNode({
   onSelect,
   level = 0,
   highlighted = false,
-  dimmed = false
+  dimmed = false,
 }: CategoryNodeProps) {
-  const hasSubcategories = subcategories.length > 0;
-  const isSubcategory = !!category.parentId;
+  const children = node.children ?? [];
+  const hasSubcategories = children.length > 0;
+  const isSubcategory = !!node.parentId;
 
   return (
     <div className={clsx(styles.nodeWrapper, { [styles.dimmed]: dimmed })}>
-      <div 
-        className={clsx(styles.node, { 
+      <div
+        className={clsx(styles.node, {
           [styles.mainNode]: !isSubcategory,
           [styles.subNode]: isSubcategory,
-          [styles.selected]: highlighted
+          [styles.selected]: highlighted,
         })}
-        onClick={() => onSelect(category)}
+        onClick={() => onSelect(node)}
       >
         <div className={styles.nodeLeft}>
           {hasSubcategories ? (
-            <button 
-              className={styles.chevron} 
+            <button
+              className={styles.chevron}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggle();
@@ -74,15 +72,15 @@ export function CategoryNode({
           </div>
 
           <div className={styles.nameSection}>
-            <span className={styles.name}>{category.name}</span>
+            <span className={styles.name}>{node.name}</span>
             <div className={styles.badges}>
               {!isSubcategory && (
                 <Badge variant="default" className={styles.smallBadge}>
-                  {subcategories.length} sub.
+                  {children.length} sub.
                 </Badge>
               )}
               <Badge variant="inactive" className={styles.tinyBadge}>
-                {category.productCount} prod.
+                {node.productCount} prod.
               </Badge>
             </div>
           </div>
@@ -91,29 +89,38 @@ export function CategoryNode({
         <div className={styles.nodeRight}>
           <div className={styles.skuPrefix}>
             <span className={styles.skuLabel}>SKU prefix:</span>
-            <code className={styles.skuValue}>{category.skuPrefix}-</code>
+            <code className={styles.skuValue}>{node.skuPrefix}-</code>
           </div>
 
           <div className={styles.actions}>
             {!isSubcategory && (
-              <button 
-                className={styles.actionBtn} 
-                onClick={(e) => { e.stopPropagation(); onAddSub(category); }}
+              <button
+                className={styles.actionBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddSub(node);
+                }}
                 title="Agregar subcategoría"
               >
                 <Plus size={16} />
               </button>
             )}
-            <button 
-              className={styles.actionBtn} 
-              onClick={(e) => { e.stopPropagation(); onEdit(category); }}
+            <button
+              className={styles.actionBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(node);
+              }}
               title="Editar"
             >
               <Edit2 size={16} />
             </button>
-            <button 
-              className={clsx(styles.actionBtn, styles.deleteAction)} 
-              onClick={(e) => { e.stopPropagation(); onDelete(category); }}
+            <button
+              className={clsx(styles.actionBtn, styles.deleteAction)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(node);
+              }}
               title="Eliminar"
             >
               <Trash2 size={16} />
@@ -125,11 +132,10 @@ export function CategoryNode({
       {hasSubcategories && isExpanded && (
         <div className={styles.children}>
           <div className={styles.connectorLine} />
-          {subcategories.map(sub => (
+          {children.map((sub) => (
             <CategoryNode
               key={sub.id}
-              category={sub}
-              subcategories={[]} // We only support 2 levels for now as per requirements
+              node={sub}
               isExpanded={false}
               onToggle={() => {}}
               onEdit={onEdit}
@@ -147,62 +153,51 @@ export function CategoryNode({
 }
 
 interface CategoryTreeProps {
-  categories: Category[];
+  tree: CategoryTreeItem[];
   searchQuery: string;
-  onEdit: (cat: Category) => void;
-  onDelete: (cat: Category) => void;
-  onAddSub: (cat: Category) => void;
-  onSelect: (cat: Category) => void;
+  onEdit: (node: CategoryTreeItem) => void;
+  onDelete: (node: CategoryTreeItem) => void;
+  onAddSub: (node: CategoryTreeItem) => void;
+  onSelect: (node: CategoryTreeItem) => void;
 }
 
-export function CategoryTree({ 
-  categories, 
+export function CategoryTree({
+  tree,
   searchQuery,
   onEdit,
   onDelete,
   onAddSub,
-  onSelect
+  onSelect,
 }: CategoryTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
 
   const toggleNode = (id: string) => {
-    setExpandedNodes(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
+    setExpandedNodes((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const mainCategories = categories.filter(c => !c.parentId);
-  
   const isSearching = searchQuery.length > 0;
+
+  const matchesQuery = (n: CategoryTreeItem) =>
+    n.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    n.skuPrefix.toLowerCase().includes(searchQuery.toLowerCase());
 
   return (
     <div className={styles.treeContainer}>
-      {mainCategories.map(cat => {
-        const sub = categories.filter(s => s.parentId === cat.id);
-        
-        // Filtering logic
-        const matchesQuery = (c: Category) => 
-          c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-          c.skuPrefix.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        const catMatches = matchesQuery(cat);
-        const subMatches = sub.some(s => matchesQuery(s));
-        
+      {tree.map((node) => {
+        const children = node.children ?? [];
+        const catMatches = matchesQuery(node);
+        const subMatches = children.some(matchesQuery);
         const highlighted = isSearching && catMatches;
         const dimmed = isSearching && !catMatches && !subMatches;
-        
-        // Auto-expand if subcategory matches search
         const isForceExpanded = isSearching && subMatches;
-        const expanded = expandedNodes[cat.id] || isForceExpanded;
+        const expanded = expandedNodes[node.id] ?? isForceExpanded;
 
         return (
           <CategoryNode
-            key={cat.id}
-            category={cat}
-            subcategories={sub}
+            key={node.id}
+            node={node}
             isExpanded={expanded}
-            onToggle={() => toggleNode(cat.id)}
+            onToggle={() => toggleNode(node.id)}
             onEdit={onEdit}
             onDelete={onDelete}
             onAddSub={onAddSub}

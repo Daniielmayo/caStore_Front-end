@@ -1,32 +1,39 @@
 'use client';
 
 import React from 'react';
-import { 
-  Camera, 
-  Mail, 
-  Calendar, 
-  Activity, 
-  Clock, 
-  ShieldCheck 
+import {
+  Camera,
+  Mail,
+  Calendar,
+  Activity,
+  Clock,
+  ShieldCheck,
 } from 'lucide-react';
-import { useAuth, getInitials } from '../../../auth/context/AuthContext';
-import { useToast } from '../../../../components/ui/Toast';
+import { getInitials } from '@/src/features/users/schemas/user.schema';
+import { useToast } from '@/src/components/ui/Toast';
+import type { AuthUser } from '@/src/features/auth/types/auth.types';
 import styles from './ProfilePage.module.css';
 
-export function ProfileIdentityCard() {
-  const { user } = useAuth();
+interface ProfileIdentityCardProps {
+  user: AuthUser;
+}
+
+export function ProfileIdentityCard({ user }: ProfileIdentityCardProps) {
   const { showToast } = useToast();
-  const initials = getInitials(user.name);
+  const initials = getInitials(user.fullName);
 
   return (
     <div className={styles.identityCard}>
       <div className={styles.avatarWrapper}>
-        <div className={styles.avatarLarge} style={{ backgroundColor: user.avatarColor }}>
+        <div className={styles.avatarLarge}>
           {initials}
         </div>
-        <button 
+        <button
+          type="button"
           className={styles.changePicBtn}
-          onClick={() => showToast({ message: 'Funcionalidad próximamente disponible', type: 'info' })}
+          onClick={() =>
+            showToast({ message: 'Funcionalidad próximamente disponible', type: 'info' })
+          }
         >
           <Camera size={16} />
           <span>Cambiar foto</span>
@@ -34,17 +41,17 @@ export function ProfileIdentityCard() {
       </div>
 
       <div className={styles.mainInfo}>
-        <h2 className={styles.userName}>{user.name}</h2>
+        <h2 className={styles.userName}>{user.fullName}</h2>
         <div className={styles.emailRow}>
           <Mail size={14} />
           <span>{user.email}</span>
         </div>
-        <div className={styles.roleBadge}>{user.role}</div>
+        <div className={styles.roleBadge}>{user.roleName}</div>
       </div>
 
       <div className={styles.membershipInfo}>
         <Calendar size={14} />
-        <span>Miembro desde {user.memberSince}</span>
+        <span>Miembro desde —</span>
       </div>
 
       <div className={styles.statsGrid}>
@@ -53,14 +60,14 @@ export function ProfileIdentityCard() {
             <Activity size={14} />
             <span>Movimientos</span>
           </div>
-          <span className={styles.statValue}>{user.movementsCount}</span>
+          <span className={styles.statValue}>—</span>
         </div>
         <div className={styles.statItem}>
           <div className={styles.statHeader}>
             <Clock size={14} />
             <span>Última sesión</span>
           </div>
-          <span className={styles.statValue}>Hoy, 10:45 AM</span>
+          <span className={styles.statValue}>—</span>
         </div>
       </div>
 

@@ -1,9 +1,10 @@
+'use client';
+
 import React from 'react';
-import { Search, Filter, Calendar } from 'lucide-react';
+import { Search, Calendar } from 'lucide-react';
 import styles from './AlertFilters.module.css';
-import { Input } from '../../../../components/ui/Input';
-import { Select } from '../../../../components/ui/Select';
-import { Button } from '../../../../components/ui/Button';
+import { Input } from '@/src/components/ui/Input';
+import { Select } from '@/src/components/ui/Select';
 
 interface AlertFiltersProps {
   searchQuery: string;
@@ -13,6 +14,21 @@ interface AlertFiltersProps {
   typeFilter: string;
   onTypeChange: (val: string) => void;
 }
+
+const TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: 'Todas las alertas' },
+  { value: 'LOW_STOCK', label: 'Stock bajo' },
+  { value: 'EXPIRY_30D', label: 'Vence en 30 días' },
+  { value: 'EXPIRY_15D', label: 'Vence en 15 días' },
+  { value: 'EXPIRY_7D', label: 'Vence en 7 días' },
+];
+
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: 'Todos los estados' },
+  { value: 'ACTIVE', label: 'Activa' },
+  { value: 'RESOLVED', label: 'Resuelta' },
+  { value: 'DISMISSED', label: 'Descartada' },
+];
 
 export function AlertFilters({
   searchQuery,
@@ -37,19 +53,18 @@ export function AlertFilters({
           value={typeFilter}
           onChange={(e) => onTypeChange(e.target.value)}
         >
-          <option value="all">Todas las alertas</option>
-          <option value="low_stock">Stock bajo</option>
-          <option value="expiration">Vencimiento</option>
+          {TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </Select>
         <Select
           value={statusFilter}
           onChange={(e) => onStatusChange(e.target.value)}
         >
-          <option value="all">Todos los estados</option>
-          <option value="active">Activa</option>
-          <option value="resolved">Resuelta</option>
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </Select>
-        {/* Simplified Date Range for demo */}
         <div className={styles.dateDemo}>
           <Calendar size={16} className={styles.dateIcon}/>
           <span className={styles.dateText}>Cualquier fecha</span>

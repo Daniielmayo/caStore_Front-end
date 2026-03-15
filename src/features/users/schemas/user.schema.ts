@@ -26,8 +26,8 @@ export const roleSchema = z.object({
 });
 
 export const userSchema = z.object({
-  name: z.string().min(1, 'El nombre completo es requerido'),
-  email: z.string().email('Ingresa un correo electrónico válido'),
+  fullName: z.string().min(1, 'El nombre completo es requerido').max(150, 'Nombre demasiado largo'),
+  email: z.string().min(1, 'El correo es requerido').email('Ingresa un correo electrónico válido'),
   roleId: z.string().min(1, 'Debes seleccionar un rol'),
   status: z.enum(['active', 'inactive']).optional(),
 });

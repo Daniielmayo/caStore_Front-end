@@ -1,39 +1,50 @@
+'use client';
+
+import React from 'react';
+import { useParams, notFound } from 'next/navigation';
 import { ProductForm } from '@/src/features/products/components/ProductForm/ProductForm';
 import { PageWrapper } from '@/src/components/layout/PageWrapper';
-import { mockProducts } from '@/src/features/products/mockData';
-import { notFound } from 'next/navigation';
+import { useProduct } from '@/src/features/products/hooks/useProducts';
+import { SkeletonTable } from '@/src/components/common/Skeleton/SkeletonTable';
 
-export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  
-  // Simulate fetching data
-  const product = mockProducts.find(p => p.id === id);
+export default function EditProductPage() {
+  const params = useParams();
+  const id = typeof params.id === 'string' ? params.id : null;
+  const { productApi, isLoading, error } = useProduct(id);
 
-  if (!product) {
+  if (!id) {
     notFound();
   }
 
-  // Map to form data
+  if (isLoading && !productApi) {
+    return (
+      <PageWrapper title="Editar producto">
+        <SkeletonTable rows={8} columns={2} />
+      </PageWrapper>
+    );
+  }
+
+  if (error || !productApi) {
+    notFound();
+  }
+
   const initialData = {
-    id: product.id,
-    sku: product.sku,
-    name: product.name,
-    description: product.description || '',
-    price: product.price,
-    categoryId: 'cat-1', // Mock mapping
-    locationId: product.locationId || '',
-    stock: product.stock,
-    minStock: product.minStock,
-    hasExpiration: product.hasExpiration || false,
-    expirationDate: product.expirationDate || '',
-    image: product.image
+    id: productApi.id,
+    sku: productApi.sku,
+    name: productApi.name,
+    description: productApi.description ?? '',
+    price: productApi.price,
+    categoryId: productApi.categoryId,
+    locationId: productApi.locationId ?? '',
+    stock: productApi.currentStock,
+    minStock: productApi.minStock,
+    hasExpiration: productApi.hasExpiry,
+    expirationDate: productApi.expiryDate ?? '',
+    image: productApi.imageUrl,
   };
 
   return (
-    <PageWrapper
-      title="Editar producto"
-      // Subtitle is handled inside the form via skuBanner for editing
-    >
+    <PageWrapper title="Editar producto">
       <ProductForm isEdit initialData={initialData} />
     </PageWrapper>
   );

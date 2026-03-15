@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 import clsx from 'clsx';
 import styles from './Toast.module.css';
 
@@ -40,6 +40,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         <div className={styles.toastContainer}>
           <div className={clsx(styles.toast, styles[toast.type || 'info'])}>
             {toast.type === 'success' && <CheckCircle2 className={styles.icon} size={20} />}
+            {toast.type === 'error' && <AlertCircle className={styles.icon} size={20} />}
             <p className={styles.message}>{toast.message}</p>
             <button className={styles.closeBtn} onClick={() => setToast(null)} aria-label="Cerrar notificación">
               <X size={16} />

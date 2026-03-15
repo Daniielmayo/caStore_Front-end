@@ -9,7 +9,6 @@ import { SkeletonGrid } from '@/src/components/common/Skeleton/SkeletonGrid';
 import { useLocations } from '@/src/features/locations/hooks/useLocations';
 import LocationsPage from '@/src/features/locations/components/LocationsPage/LocationsPage';
 import { AlertCircle, MapPin } from 'lucide-react';
-import { clsx } from 'clsx';
 import styles from './page.module.css';
 
 export default function LocationsPageRoute() {

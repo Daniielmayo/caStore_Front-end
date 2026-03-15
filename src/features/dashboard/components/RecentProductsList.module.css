@@ -63,9 +63,13 @@
   border-bottom: none;
 }
 
+.table tbody tr:hover,
+.rowLink {
+  cursor: pointer;
+}
+
 .table tbody tr:hover {
   background-color: var(--color-light);
-  cursor: pointer;
 }
 
 .sku {

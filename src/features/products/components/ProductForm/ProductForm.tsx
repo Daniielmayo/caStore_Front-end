@@ -1,12 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
 import { Info } from 'lucide-react';
 
 import { productSchema, ProductFormData } from '../../schemas/product.schema';
+import { useCreateProduct, useUpdateProduct, useUpdateProductImage } from '../../hooks/useProducts';
+import { categoriesService } from '@/src/services/categories.service';
+import { locationsService } from '@/src/services/locations.service';
 import { Input } from '@/src/components/ui/Input';
 import { Textarea } from '@/src/components/ui/Textarea';
 import { Select } from '@/src/components/ui/Select';
@@ -26,17 +30,51 @@ interface ProductFormProps {
 export function ProductForm({ initialData, isEdit }: ProductFormProps) {
   const router = useRouter();
   const { showToast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: categoriesRes } = useQuery({
+    queryKey: ['categories', 'list'],
+    queryFn: () => categoriesService.getCategories({ limit: 200 }),
+  });
+  const { data: locationsRes } = useQuery({
+    queryKey: ['locations', 'list'],
+    queryFn: () => locationsService.getLocations({ page: 1, limit: 500 }),
+  });
+
+  const categories = categoriesRes?.data ?? [];
+  const locations = locationsRes?.data ?? [];
+
+  const createMutation = useCreateProduct({
+    onSuccess: () => {
+      showToast({ message: 'Producto creado correctamente', type: 'success' });
+      router.push('/products');
+    },
+    onError: () => {
+      showToast({ message: 'Error al crear el producto. Intenta de nuevo.', type: 'error' });
+    },
+  });
+
+  const updateMutation = useUpdateProduct({
+    onSuccess: () => {
+      showToast({ message: 'Producto actualizado correctamente', type: 'success' });
+      router.push('/products');
+    },
+    onError: () => {
+      showToast({ message: 'Error al actualizar el producto. Intenta de nuevo.', type: 'error' });
+    },
+  });
+
+  const updateImageMutation = useUpdateProductImage();
 
   const {
     register,
     handleSubmit,
     control,
     watch,
-    formState: { errors }
+    setValue,
+    formState: { errors },
   } = useForm<ProductFormData>({
-    resolver: zodResolver(productSchema) as any,
-    defaultValues: initialData || {
+    resolver: zodResolver(productSchema) as Resolver<ProductFormData>,
+    defaultValues: initialData ?? {
       name: '',
       description: '',
       price: 0,
@@ -46,23 +84,58 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
       minStock: 0,
       hasExpiration: false,
       expirationDate: '',
-      image: null
-    }
+      image: null,
+    },
   });
 
+  useEffect(() => {
+    if (initialData) {
+      setValue('name', initialData.name);
+      setValue('description', initialData.description ?? '');
+      setValue('price', initialData.price);
+      setValue('categoryId', initialData.categoryId ?? '');
+      setValue('locationId', initialData.locationId ?? '');
+      setValue('stock', initialData.stock ?? 0);
+      setValue('minStock', initialData.minStock ?? 0);
+      setValue('hasExpiration', initialData.hasExpiration ?? false);
+      setValue('expirationDate', initialData.expirationDate ?? '');
+      setValue('image', initialData.image ?? null);
+    }
+  }, [initialData, setValue]);
+
   const hasExpiration = watch('hasExpiration');
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   const onSubmit = async (data: ProductFormData) => {
-    setIsSubmitting(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsSubmitting(false);
-
-    showToast({
-      message: isEdit ? 'Producto actualizado correctamente' : 'Producto creado correctamente',
-      type: 'success'
-    });
-    router.push('/products');
+    if (isEdit && initialData?.id) {
+      const dto = {
+        name: data.name,
+        description: data.description || undefined,
+        price: data.price,
+        minStock: data.minStock,
+        categoryId: data.categoryId,
+        locationId: data.locationId || undefined,
+        hasExpiry: data.hasExpiration,
+        expiryDate: data.hasExpiration ? data.expirationDate || undefined : undefined,
+      };
+      updateMutation.mutate({ id: initialData.id, dto });
+      if (data.image && data.image !== (initialData as { image?: string | null }).image) {
+        updateImageMutation.mutate({ id: initialData.id, imageUrl: data.image });
+      }
+    } else {
+      const dto = {
+        name: data.name,
+        description: data.description || undefined,
+        price: data.price,
+        currentStock: data.stock ?? 0,
+        minStock: data.minStock,
+        categoryId: data.categoryId,
+        locationId: data.locationId || undefined,
+        hasExpiry: data.hasExpiration,
+        expiryDate: data.hasExpiration ? data.expirationDate || undefined : undefined,
+      };
+      createMutation.mutate(dto);
+    }
   };
 
   return (
@@ -71,10 +144,12 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
         <div className={styles.skuBanner}>
           <div className={styles.skuBannerContent}>
             <span className={styles.skuLabel}>SKU:</span>
-            <Badge variant="default" className={styles.skuBadge}>{initialData.sku}</Badge>
+            <Badge variant="default" className={styles.skuBadge}>
+              {initialData.sku}
+            </Badge>
             <span className={styles.skuHint}>
               <Info size={14} className={styles.infoIcon} />
-              Generado automáticamente. No editable.
+              Generado automáticamente por el backend. No editable.
             </span>
           </div>
         </div>
@@ -122,6 +197,7 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
                   />
                 )}
               />
+              <p className={styles.imageHint}>URL o archivo. Se guarda por PATCH /products/:id/image.</p>
             </div>
           </div>
         </div>
@@ -135,19 +211,11 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
               error={errors.categoryId?.message}
             >
               <option value="">Selecciona una categoría</option>
-              <optgroup label="Motor">
-                <option value="cat-1">Filtros</option>
-                <option value="cat-2">Encendido</option>
-                <option value="cat-3">Distribución</option>
-              </optgroup>
-              <optgroup label="Suspensión">
-                <option value="cat-4">Amortiguadores</option>
-                <option value="cat-5">Bujes</option>
-              </optgroup>
-              <optgroup label="Frenos">
-                <option value="cat-6">Frenado</option>
-                <option value="cat-7">Líquidos</option>
-              </optgroup>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.parentName ? `${cat.parentName} › ` : ''}{cat.name}
+                </option>
+              ))}
             </Select>
 
             <Select
@@ -155,10 +223,12 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
               {...register('locationId')}
               error={errors.locationId?.message}
             >
-              <option value="">Selecciona la ubicación</option>
-              <option value="loc-1">A-01-01 (Estante A, Nivel 1)</option>
-              <option value="loc-2">A-02-03 (Estante A, Nivel 2)</option>
-              <option value="loc-3">B-01-05 (Estante B, Nivel 1)</option>
+              <option value="">Selecciona la ubicación (opcional)</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
             </Select>
           </div>
         </div>
@@ -173,6 +243,7 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
                 hint="Cantidad física disponible ahora mismo"
                 {...register('stock')}
                 error={errors.stock?.message}
+                disabled={isEdit}
               />
               <Input
                 label="Stock mínimo"
@@ -192,10 +263,7 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
                 control={control}
                 name="hasExpiration"
                 render={({ field }) => (
-                  <Switch
-                    checked={field.value}
-                    onChange={field.onChange}
-                  />
+                  <Switch checked={field.value} onChange={field.onChange} />
                 )}
               />
             </div>
@@ -213,7 +281,12 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
       </div>
 
       <div className={styles.footer}>
-        <Button variant="secondary" type="button" onClick={() => router.push('/products')} disabled={isSubmitting}>
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={() => router.push('/products')}
+          disabled={isSubmitting}
+        >
           Cancelar
         </Button>
         <Button variant="primary" type="submit" isLoading={isSubmitting}>

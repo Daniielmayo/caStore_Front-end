@@ -24,13 +24,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 1. Manejo de Timeout
     if (error.code === 'ECONNABORTED') {
-      console.warn('⚠️ API timeout - Fallback a datos mock activado');
-      return Promise.resolve({ data: null }); // Retornamos null para que el hook use el mock
+      return Promise.resolve({ data: null });
     }
 
-    // 2. Manejo de autenticación expirada
     if (error.response?.status === 401) {
       clearAuth();
       if (typeof window !== 'undefined') {
@@ -39,10 +36,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // 3. Otros errores en desarrollo: retornar null silenciosamente
-    // En producción, podrías querer lanzar el error para el ErrorBoundary
     if (process.env.NODE_ENV === 'development') {
-      console.error('❌ API Error silenciado para fallback:', error.message);
       return Promise.resolve({ data: null });
     }
 

@@ -1,29 +1,35 @@
-import React from 'react';
-import { 
-  Eye, 
-  Edit3, 
-  MapPin, 
-  Mail, 
-  Phone, 
-  User, 
-  ExternalLink 
-} from 'lucide-react';
+'use client';
+
+import React, { useState } from 'react';
+import { Eye, Edit3, MapPin, Mail, Phone, User } from 'lucide-react';
 import Link from 'next/link';
 import clsx from 'clsx';
 import styles from './SuppliersTable.module.css';
-import { Supplier, SupplierType } from '../../mockData';
-import { Badge } from '../../../../components/ui/Badge';
+import type { SupplierWithStatsApi, SupplierTypeApi, ContributorTypeApi } from '../../types/suppliers.types';
+const TYPE_LABELS: Record<SupplierTypeApi, string> = {
+  NATIONAL: 'Nacional',
+  INTERNATIONAL: 'Internacional',
+  MANUFACTURER: 'Fabricante',
+  DISTRIBUTOR: 'Distribuidor',
+};
+
+const CONTRIBUTOR_LABELS: Record<ContributorTypeApi, string> = {
+  LARGE: 'Gran Contribuyente',
+  COMMON: 'Persona Jurídica',
+  SIMPLIFIED: 'Régimen Simplificado',
+  NON_CONTRIBUTOR: 'Persona Natural',
+};
+
+const TYPE_COLORS: Record<SupplierTypeApi, string> = {
+  NATIONAL: styles.badgeBlue,
+  INTERNATIONAL: styles.badgeGreen,
+  MANUFACTURER: styles.badgeOrange,
+  DISTRIBUTOR: styles.badgePurple,
+};
 
 interface SuppliersTableProps {
-  suppliers: Supplier[];
+  suppliers: SupplierWithStatsApi[];
 }
-
-const TYPE_COLORS: Record<SupplierType, string> = {
-  Nacional: styles.badgeBlue,
-  Internacional: styles.badgeGreen,
-  Fabricante: styles.badgeOrange,
-  Distribuidor: styles.badgePurple,
-};
 
 export function SuppliersTable({ suppliers }: SuppliersTableProps) {
   return (
@@ -58,28 +64,21 @@ export function SuppliersTable({ suppliers }: SuppliersTableProps) {
                 </td>
                 <td>
                   <div className={styles.providerCell}>
-                    <span className={styles.commercialName}>{s.commercialName}</span>
-                    <span className={styles.businessName}>{s.businessName}</span>
-                    {/* Tooltip implementation via CSS or simple title for now as per web requirements */}
-                    <div className={styles.quickContact}>
-                      <div className={styles.tooltip}>
-                         <div className={styles.tpItem}><User size={12} /> {s.contactPerson}</div>
-                         <div className={styles.tpItem}><Phone size={12} /> {s.phone}</div>
-                         <div className={styles.tpItem}><Mail size={12} /> {s.email}</div>
-                      </div>
-                    </div>
+                    <span className={styles.commercialName}>{s.tradeName}</span>
+                    <span className={styles.businessName}>{s.legalName}</span>
+                    <ContactTooltip supplier={s} />
                   </div>
                 </td>
                 <td>
-                  <code className={styles.nit}>{s.nit}</code>
+                  <code className={styles.nit}>{s.taxId}</code>
                 </td>
                 <td>
                   <span className={clsx(styles.typeBadge, TYPE_COLORS[s.type])}>
-                    {s.type}
+                    {TYPE_LABELS[s.type]}
                   </span>
                 </td>
                 <td>
-                  <span className={styles.taxBadge}>{s.taxpayerType}</span>
+                  <span className={styles.taxBadge}>{CONTRIBUTOR_LABELS[s.contributorType]}</span>
                 </td>
                 <td>
                   <div className={styles.cityCell}>
@@ -89,19 +88,19 @@ export function SuppliersTable({ suppliers }: SuppliersTableProps) {
                 </td>
                 <td>
                   <div className={styles.contactCell}>
-                    <span className={styles.contactName}>{s.contactPerson}</span>
-                    <span className={styles.contactEmail}>{s.email}</span>
+                    <span className={styles.contactName}>{s.contactName ?? '—'}</span>
+                    <span className={styles.contactEmail}>{s.email ?? '—'}</span>
                   </div>
                 </td>
                 <td>
                   <div className={styles.actions}>
                     <Link href={`/suppliers/${s.id}`} title="Ver perfil">
-                      <button className={styles.actionBtn}>
+                      <button type="button" className={styles.actionBtn}>
                         <Eye size={18} />
                       </button>
                     </Link>
                     <Link href={`/suppliers/${s.id}/edit`} title="Editar">
-                      <button className={styles.actionBtn}>
+                      <button type="button" className={styles.actionBtn}>
                         <Edit3 size={18} />
                       </button>
                     </Link>
@@ -112,6 +111,40 @@ export function SuppliersTable({ suppliers }: SuppliersTableProps) {
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function ContactTooltip({ supplier }: { supplier: SupplierWithStatsApi }) {
+  const [visible, setVisible] = useState(false);
+  const hasContact =
+    supplier.contactName || supplier.phone || supplier.email;
+
+  if (!hasContact) return null;
+
+  return (
+    <div
+      className={styles.quickContact}
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+    >
+      <div className={clsx(styles.tooltip, visible && styles.tooltipVisible)}>
+        {supplier.contactName && (
+          <div className={styles.tpItem}>
+            <User size={12} /> {supplier.contactName}
+          </div>
+        )}
+        {supplier.phone && (
+          <div className={styles.tpItem}>
+            <Phone size={12} /> {supplier.phone}
+          </div>
+        )}
+        {supplier.email && (
+          <div className={styles.tpItem}>
+            <Mail size={12} /> {supplier.email}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

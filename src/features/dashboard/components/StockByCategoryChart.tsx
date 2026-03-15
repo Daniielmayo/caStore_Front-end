@@ -20,7 +20,12 @@ interface StockByCategoryChartProps {
 
 const COLORS = ['#F8623A', '#2563EB', '#16A34A', '#D97706', '#7C3AED'];
 
-const CustomTooltip = ({ active, payload }: any) => {
+interface TooltipPayloadItem { payload: StockByCategory }
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+}
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const total = payload[0].payload.totalPayloadSum || 1; // Simplified percentage
@@ -78,7 +83,7 @@ export function StockByCategoryChart({ data, isLoading }: StockByCategoryChartPr
               layout="vertical"
               verticalAlign="middle"
               align="right"
-              formatter={(value, entry: any) => (
+              formatter={(value: string, entry: { payload?: StockByCategory }) => (
                 <span className={styles.legendLabel}>
                   {value} ({entry.payload.productCount})
                 </span>

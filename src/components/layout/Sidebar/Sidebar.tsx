@@ -3,20 +3,21 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Package, 
-  Bell, 
-  ArrowLeftRight, 
-  Building2, 
-  Users, 
-  FolderTree, 
+import {
+  LayoutDashboard,
+  Package,
+  Bell,
+  ArrowLeftRight,
+  Building2,
+  Users,
+  FolderTree,
   MapPin,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import styles from './Sidebar.module.css';
 
 import { useAuth } from '../../../hooks/useAuth';
+import { useAlertsSummary } from '../../../features/alerts/hooks/useAlerts';
 
 const menuItems = [
   { group: 'Principal', items: [
@@ -36,6 +37,7 @@ const menuItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { canRead } = useAuth();
+  const { activeCount } = useAlertsSummary();
 
   const filteredMenu = menuItems.map(group => ({
     ...group,
@@ -64,7 +66,9 @@ export function Sidebar() {
                 >
                   <item.icon size={20} />
                   <span>{item.label}</span>
-                  {item.badge && <span className={styles.badge}>3</span>}
+                  {item.badge && activeCount > 0 && (
+                    <span className={styles.badge}>{activeCount > 99 ? '99+' : activeCount}</span>
+                  )}
                 </Link>
               ))}
             </div>

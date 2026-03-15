@@ -6,12 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import clsx from "clsx";
+import { useRouter } from "next/navigation";
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthForm } from "../components/AuthForm";
-import styles from "./Login.module.css";
-import { useRouter } from "next/navigation";
-
+import { useToast } from "../../../components/ui/Toast";
 import { useAuthStore } from "../../../store/auth.store";
+import styles from "./Login.module.css";
 
 const loginSchema = z.object({
   email: z.string().email("Ingresa un correo electrónico válido"),
@@ -25,6 +25,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const { showToast } = useToast();
   const loginAction = useAuthStore((state) => state.loginAction);
 
   const {
@@ -40,24 +41,23 @@ export default function Login() {
     setError(null);
     try {
       await loginAction(data);
-      
-      // Obtener el usuario del estado para verificar firstLogin
       const user = useAuthStore.getState().user;
-      
+      showToast({ message: "Sesión iniciada correctamente", type: "success" });
       if (user?.firstLogin) {
         router.push("/change-password");
       } else {
         router.push("/dashboard");
       }
-    } catch (err: any) {
-      // Mapeo de errores especificado
-      if (err.message.includes("401") || err.message.toLowerCase().includes("incorrect")) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error al iniciar sesión.";
+      if (message.includes("401") || message.toLowerCase().includes("incorrect")) {
         setError("Credenciales incorrectas. Intenta de nuevo.");
-      } else if (err.message.includes("403") || err.message.toLowerCase().includes("deactivated")) {
+      } else if (message.toLowerCase().includes("desactivada")) {
         setError("Tu cuenta está desactivada.");
       } else {
         setError("Error al iniciar sesión. Intenta de nuevo.");
       }
+      showToast({ message: "Error al iniciar sesión", type: "error" });
     } finally {
       setIsLoading(false);
     }

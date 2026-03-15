@@ -122,6 +122,12 @@
   gap: var(--space-6);
 }
 
+.imageHint {
+  font-size: var(--text-xs);
+  color: var(--color-mid);
+  margin: 0;
+}
+
 .footer {
   display: flex;
   justify-content: flex-end;

@@ -1,15 +1,6 @@
-export type LocationType = 'WAREHOUSE' | 'ZONE' | 'AISLE' | 'SHELF' | 'CELL';
+import type { Location, LocationTreeNode } from './types/locations.types';
 
-export interface Location {
-  id: string;
-  code: string;
-  name: string;
-  type: LocationType;
-  parentId?: string; // ID of the parent location
-  capacity?: number;
-  productCount: number;
-  occupancyPercent: number;
-}
+export type { Location, LocationTreeNode, LocationType } from './types/locations.types';
 
 export const mockLocations: Location[] = [
   // WAREHOUSE
@@ -38,3 +29,16 @@ export const mockLocations: Location[] = [
   { id: 'loc-3-1-1', parentId: 'loc-3-1', code: 'ZC-P1-E1', name: 'Estante 1', type: 'SHELF', productCount: 8, capacity: 10, occupancyPercent: 80 },
   { id: 'loc-4-1-1', parentId: 'loc-4-1', code: 'ZD-P1-E1', name: 'Estante 1', type: 'SHELF', productCount: 10, capacity: 10, occupancyPercent: 100 },
 ];
+
+/** Construye árbol de ubicaciones desde la lista plana (para fallback mock). */
+function buildMockTree(parentId: string | null | undefined, list: Location[]): LocationTreeNode[] {
+  return list
+    .filter((l) => (l.parentId ?? null) === parentId)
+    .map((loc) => ({
+      ...loc,
+      children: buildMockTree(loc.id, list),
+    }));
+}
+
+/** Árbol de ubicaciones para mapa/selectores cuando la API falla. */
+export const mockLocationsTree: LocationTreeNode[] = buildMockTree(null, mockLocations);

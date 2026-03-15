@@ -10,21 +10,33 @@ import styles from './RolesList.module.css';
 interface CloneRoleModalProps {
   role: Role;
   onClose: () => void;
+  /** Si se proporciona, se llama con el nombre y el padre gestiona la mutación (API). */
+  onClone?: (name: string) => void;
+  /** Estado de carga desde el padre (mutación en curso). */
+  isLoading?: boolean;
 }
 
-export function CloneRoleModal({ role, onClose }: CloneRoleModalProps) {
+export function CloneRoleModal({ role, onClose, onClone, isLoading: externalLoading = false }: CloneRoleModalProps) {
   const router = useRouter();
   const [newName, setNewName] = useState(`Copia de ${role.name}`);
-  const [isLoading, setIsLoading] = useState(false);
+  const [internalLoading, setInternalLoading] = useState(false);
+
+  const isLoading = externalLoading || internalLoading;
 
   const handleClone = () => {
-    setIsLoading(true);
-    // Simulate API call
+    const name = newName.trim();
+    if (!name) return;
+
+    if (onClone) {
+      onClone(name);
+      return;
+    }
+
+    setInternalLoading(true);
     setTimeout(() => {
-      setIsLoading(false);
+      setInternalLoading(false);
       onClose();
-      // Redirect to edit view of the "new" role (simulated)
-      router.push(`/roles/new?cloneFrom=${role.id}&name=${encodeURIComponent(newName)}`);
+      router.push(`/roles/new?cloneFrom=${role.id}&name=${encodeURIComponent(name)}`);
     }, 1200);
   };
 
@@ -33,12 +45,12 @@ export function CloneRoleModal({ role, onClose }: CloneRoleModalProps) {
       <div className={styles.modal}>
         <div className={styles.modalHeader}>
           <h3 className={styles.modalTitle}>Clonar rol</h3>
-          <p className={styles.modalSubtitle}>Clonando "{role.name}"</p>
+          <p className={styles.modalSubtitle}>Clonando &quot;{role.name}&quot;</p>
         </div>
 
         <div className={styles.modalBody}>
-          <Input 
-            label="Nombre del nuevo rol" 
+          <Input
+            label="Nombre del nuevo rol"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             required
@@ -53,7 +65,7 @@ export function CloneRoleModal({ role, onClose }: CloneRoleModalProps) {
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button onClick={handleClone} isLoading={isLoading}>
+          <Button onClick={handleClone} isLoading={isLoading} disabled={!newName.trim()}>
             Crear copia
           </Button>
         </div>

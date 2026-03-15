@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Edit2, AlertCircle, Inbox } from 'lucide-react';
+import { Search, Plus, Edit2, AlertCircle, Inbox, Package, AlertTriangle, Archive } from 'lucide-react';
 import { PageWrapper } from '@/src/components/layout/PageWrapper';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -14,97 +14,70 @@ import { useToast } from '@/src/components/ui/Toast';
 import { DataTable } from '@/src/components/tables/DataTable';
 import { Pagination } from '@/src/components/tables/Pagination';
 import { useDebounce } from '@/src/hooks/useDebounce';
-import { Product, mockProducts } from '../../mockData';
+import { SkeletonGrid } from '@/src/components/common/Skeleton/SkeletonGrid';
+import { SkeletonTable } from '@/src/components/common/Skeleton/SkeletonTable';
+import { MockWarning } from '@/src/components/common/MockWarning/MockWarning';
+import { useProductsList, useProductStats, useUpdateProductStatus } from '../../hooks/useProducts';
+import type { Product } from '../../mockData';
+import type { ProductStatus } from '../../types/products.types';
 import styles from './ProductList.module.css';
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 export default function ProductList() {
   const router = useRouter();
   const { showToast } = useToast();
-  
-  // State
-  const [data, setData] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Filters
+
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
-  const [statusFilter, setStatusFilter] = useState('all');
-  
-  // Pagination
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'discontinued'>('all');
+  const [lowStockOnly, setLowStockOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  
-  // Modal for status change
   const [productToToggle, setProductToToggle] = useState<Product | null>(null);
 
-  // Initial load simulation
-  useEffect(() => {
-    const load = setTimeout(() => {
-      setData(mockProducts);
-      setLoading(false);
-    }, 1500);
-    return () => clearTimeout(load);
-  }, []);
+  const apiStatus: ProductStatus | 'all' = statusFilter === 'all' ? 'all' : statusFilter.toUpperCase() as ProductStatus;
 
-  // Filtering
-  const filteredData = useMemo(() => {
-    let result = [...data];
-    
-    // Status filter
-    if (statusFilter !== 'all') {
-      result = result.filter(p => p.status === statusFilter);
-    }
-    
-    // Search by name, SKU or category
-    if (debouncedSearch) {
-      const lower = debouncedSearch.toLowerCase();
-      result = result.filter(p => 
-        p.name.toLowerCase().includes(lower) ||
-        p.sku.toLowerCase().includes(lower) ||
-        p.categoryName.toLowerCase().includes(lower)
-      );
-    }
-    
-    return result;
-  }, [data, debouncedSearch, statusFilter]);
+  const { data, pagination, isLoading, isFetching, error, refetch } = useProductsList({
+    page,
+    limit: pageSize,
+    search: debouncedSearch || undefined,
+    status: apiStatus,
+    lowStock: lowStockOnly || undefined,
+  });
 
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, statusFilter]);
+  const { stats, isLoading: statsLoading, isUsingMock: statsMock } = useProductStats();
 
-  // Paginated data
-  const paginatedData = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filteredData.slice(start, start + pageSize);
-  }, [filteredData, page, pageSize]);
+  const updateStatusMutation = useUpdateProductStatus({
+    onSuccess: (updated, variables) => {
+      const newStatus = variables.status === 'ACTIVE' ? 'activado' : variables.status === 'INACTIVE' ? 'desactivado' : 'marcado como descontinuado';
+      showToast({ message: `Producto ${newStatus} correctamente.`, type: 'success' });
+      setProductToToggle(null);
+    },
+    onError: () => {
+      showToast({ message: 'Error al cambiar el estado del producto.', type: 'error' });
+    },
+  });
 
-  // Actions
   const handleToggleClick = (product: Product) => {
     setProductToToggle(product);
   };
 
   const confirmToggle = () => {
     if (!productToToggle) return;
-    
-    const newStatus = productToToggle.status === 'active' ? 'inactive' : 'active';
-    const updatedData = data.map(p => 
-      p.id === productToToggle.id ? { ...p, status: newStatus as any } : p
-    );
-    
-    setData(updatedData);
-    showToast({ 
-      message: `${productToToggle.name} ${newStatus === 'active' ? 'activado' : 'desactivado'} correctamente.`,
-      type: 'success' 
-    });
-    setProductToToggle(null);
+    if (productToToggle.status === 'discontinued') {
+      showToast({ message: 'No se puede cambiar el estado de un producto descontinuado.', type: 'error' });
+      return;
+    }
+    const newStatus: ProductStatus = productToToggle.status === 'active' ? 'INACTIVE' : 'ACTIVE';
+    updateStatusMutation.mutate({ id: productToToggle.id, status: newStatus });
   };
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
-      minimumFractionDigits: 0
+      minimumFractionDigits: 0,
     }).format(val);
   };
 
@@ -120,7 +93,7 @@ export default function ProductList() {
     {
       key: 'sku',
       header: 'SKU',
-      render: (item: Product) => <span className={styles.skuText}>{item.sku}</span>
+      render: (item: Product) => <span className={styles.skuText}>{item.sku}</span>,
     },
     {
       key: 'name',
@@ -130,7 +103,7 @@ export default function ProductList() {
           <img src={item.image} alt={item.name} className={styles.productImg} />
           <span className={styles.productName}>{item.name}</span>
         </div>
-      )
+      ),
     },
     {
       key: 'category',
@@ -139,17 +112,17 @@ export default function ProductList() {
         <span className={styles.categoryText}>
           {item.parentCategoryName ? `${item.parentCategoryName} › ` : ''}{item.categoryName}
         </span>
-      )
+      ),
     },
     {
       key: 'createdAt',
       header: 'Fecha de creación',
-      render: (item: Product) => formatDate(item.createdAt)
+      render: (item: Product) => formatDate(item.createdAt),
     },
     {
       key: 'price',
       header: 'Precio',
-      render: (item: Product) => formatCurrency(item.price)
+      render: (item: Product) => formatCurrency(item.price),
     },
     {
       key: 'stock',
@@ -172,18 +145,18 @@ export default function ProductList() {
           );
         }
         return <span className={styles.stockNum}>{item.stock}</span>;
-      }
+      },
     },
     {
       key: 'status',
       header: 'Estado',
       render: (item: Product) => (
-        <Switch 
+        <Switch
           checked={item.status === 'active'}
           onChange={() => handleToggleClick(item)}
-          disabled={item.status === 'discontinued'}
+          disabled={item.status === 'discontinued' || updateStatusMutation.isPending}
         />
-      )
+      ),
     },
     {
       key: 'actions',
@@ -196,8 +169,8 @@ export default function ProductList() {
             </Button>
           </Link>
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   const emptyState = (
@@ -208,10 +181,14 @@ export default function ProductList() {
       <h3>Sin productos registrados</h3>
       <p>Aún no hay productos en el inventario o no coinciden con la búsqueda.</p>
       <Link href="/products/new" passHref legacyBehavior>
-        <Button variant="primary" style={{ marginTop: '16px' }}>Agregar producto</Button>
+        <Button variant="primary" style={{ marginTop: '16px' }}>
+          Agregar producto
+        </Button>
       </Link>
     </div>
   );
+
+  const totalCount = pagination?.total ?? 0;
 
   return (
     <PageWrapper
@@ -226,9 +203,57 @@ export default function ProductList() {
         </Link>
       }
     >
+      {statsMock && <MockWarning />}
+
+      {/* Tarjetas de estadísticas */}
+      <section className={styles.statsSection}>
+        {statsLoading ? (
+          <SkeletonGrid count={4} />
+        ) : (
+          <>
+            <div className={styles.statCard} onClick={() => router.push('/products')}>
+              <div className={styles.statIconWrap} style={{ backgroundColor: 'var(--color-primary-soft)', color: 'var(--color-primary)' }}>
+                <Package size={22} />
+              </div>
+              <div className={styles.statContent}>
+                <span className={styles.statLabel}>Activos</span>
+                <span className={styles.statValue}>{stats.totalActive}</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={styles.statIconWrap} style={{ backgroundColor: '#FEE2E2', color: 'var(--color-error)' }}>
+                <AlertTriangle size={22} />
+              </div>
+              <div className={styles.statContent}>
+                <span className={styles.statLabel}>Stock bajo</span>
+                <span className={styles.statValue}>{stats.lowStockCount}</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={styles.statIconWrap} style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                <AlertCircle size={22} />
+              </div>
+              <div className={styles.statContent}>
+                <span className={styles.statLabel}>Sin stock</span>
+                <span className={styles.statValue}>{stats.outOfStockCount}</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={styles.statIconWrap} style={{ backgroundColor: '#E5E7EB', color: '#6B7280' }}>
+                <Archive size={22} />
+              </div>
+              <div className={styles.statContent}>
+                <span className={styles.statLabel}>Descontinuados</span>
+                <span className={styles.statValue}>{stats.totalDiscontinued}</span>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
+
       <div className={styles.controls}>
         <div className={styles.searchWrap}>
-          <Input 
+          <Input
             placeholder="Buscar por nombre, SKU o categoría..."
             icon={Search}
             value={search}
@@ -236,10 +261,24 @@ export default function ProductList() {
           />
         </div>
         <div className={styles.filtersWrap}>
-          <select 
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={lowStockOnly}
+              onChange={(e) => {
+                setLowStockOnly(e.target.checked);
+                setPage(1);
+              }}
+            />
+            Stock bajo
+          </label>
+          <select
             className={styles.statusSelect}
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as typeof statusFilter);
+              setPage(1);
+            }}
           >
             <option value="all">Todos los estados</option>
             <option value="active">Activo</option>
@@ -247,43 +286,59 @@ export default function ProductList() {
             <option value="discontinued">Descontinuado</option>
           </select>
           <span className={styles.resultsCount}>
-            {filteredData.length} resultados
+            {pagination ? `${totalCount} resultados` : (isLoading ? '...' : '0 resultados')}
           </span>
         </div>
       </div>
 
-      <DataTable 
-        columns={columns}
-        data={paginatedData}
-        loading={loading}
-        emptyState={emptyState}
-      />
+      {isLoading && !data.length ? (
+        <SkeletonTable rows={6} columns={8} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data}
+          loading={isFetching}
+          emptyState={emptyState}
+        />
+      )}
 
-      {!loading && filteredData.length > 0 && (
-        <Pagination 
+      {!isLoading && pagination && totalCount > 0 && (
+        <Pagination
           currentPage={page}
           pageSize={pageSize}
-          totalCount={filteredData.length}
+          totalCount={totalCount}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />
       )}
 
-      <Modal 
-        isOpen={!!productToToggle} 
+      <Modal
+        isOpen={!!productToToggle}
         onClose={() => setProductToToggle(null)}
         title="Confirmar cambio de estado"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setProductToToggle(null)}>Cancelar</Button>
-            <Button variant="primary" onClick={confirmToggle}>Confirmar</Button>
+            <Button variant="secondary" onClick={() => setProductToToggle(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={confirmToggle}
+              disabled={updateStatusMutation.isPending}
+            >
+              Confirmar
+            </Button>
           </>
         }
       >
         <div className={styles.modalContent}>
           <AlertCircle size={24} className={styles.modalIcon} />
           <p>
-            ¿Estás seguro de que deseas <strong>{productToToggle?.status === 'active' ? 'desactivar' : 'activar'}</strong> el producto <strong>{productToToggle?.name}</strong>?
+            ¿Estás seguro de que deseas{' '}
+            <strong>
+              {productToToggle?.status === 'active' ? 'desactivar' : 'activar'}
+            </strong>{' '}
+            el producto <strong>{productToToggle?.name}</strong>?
           </p>
         </div>
       </Modal>

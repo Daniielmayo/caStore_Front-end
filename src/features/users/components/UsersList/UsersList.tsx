@@ -1,112 +1,184 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Search, Filter, Plus, X } from 'lucide-react';
+import React from 'react';
+import { Search, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import styles from './UsersList.module.css';
 import { UserSummaryCards } from './UserSummaryCards';
 import { UsersTable } from './UsersTable';
-import { Input } from '../../../../components/ui/Input';
-import { Select } from '../../../../components/ui/Select';
-import { Button } from '../../../../components/ui/Button';
-import { mockUsers, mockRoles } from '../../mockData';
+import { Button } from '@/src/components/ui/Button';
+import { MockWarning } from '@/src/components/common/MockWarning/MockWarning';
+import type { User } from '@/src/features/users/types/users.types';
 
-export function UsersList() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [users, setUsers] = useState(mockUsers);
+export interface UsersListFilterState {
+  page: number;
+  setPage: (p: number | ((prev: number) => number)) => void;
+  searchTerm: string;
+  setSearchTerm: (s: string) => void;
+  roleFilter: string;
+  setRoleFilter: (s: string) => void;
+  statusFilter: 'all' | 'active' | 'inactive';
+  setStatusFilter: (s: 'all' | 'active' | 'inactive') => void;
+}
 
-  const filteredUsers = useMemo(() => {
-    return users.filter(user => {
-      const matchesSearch = 
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRole = roleFilter === '' || user.roleId === roleFilter;
-      const matchesStatus = statusFilter === '' || user.status === statusFilter;
-      
-      return matchesSearch && matchesRole && matchesStatus;
-    });
-  }, [searchTerm, roleFilter, statusFilter, users]);
+interface UsersListProps {
+  users: User[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+    nextPage: number | null;
+    prevPage: number | null;
+    from: number;
+    to: number;
+  } | null;
+  roles: { id: string; name: string }[];
+  isLoading: boolean;
+  isUsingMock: boolean;
+  onToggleStatus: (id: string, currentStatus: string) => void;
+  onRefresh: () => void;
+  filterState: UsersListFilterState;
+}
 
-  const handleToggleStatus = (id: string, currentStatus: string) => {
-    setUsers(prev => prev.map(u => 
-      u.id === id 
-        ? { ...u, status: currentStatus === 'active' ? 'inactive' : 'active' } 
-        : u
-    ));
+const DEFAULT_PAGE = 1;
+
+export function UsersList({
+  users,
+  pagination,
+  roles,
+  onToggleStatus,
+  filterState,
+}: UsersListProps) {
+  const {
+    page,
+    setPage,
+    searchTerm,
+    setSearchTerm,
+    roleFilter,
+    setRoleFilter,
+    statusFilter,
+    setStatusFilter,
+  } = filterState;
+
+  const hasFilters = searchTerm.trim() || roleFilter || statusFilter !== 'all';
+  const clearFilters = () => {
+    setSearchTerm('');
+    setRoleFilter('');
+    setStatusFilter('all');
+    setPage(DEFAULT_PAGE);
   };
 
   return (
     <div className={styles.container}>
-      {/* Header handled by PageWrapper, but we need the Action Button */}
       <div className={styles.topActions}>
         <Link href="/users/new">
-          <Button>
+          <Button type="button">
             <Plus size={18} />
             Crear usuario
           </Button>
         </Link>
       </div>
 
-      <UserSummaryCards users={users} roleCount={mockRoles.length} />
+      <UserSummaryCards users={users} roleCount={roles.length} />
 
       <div className={styles.filterSection}>
         <div className={styles.searchBox}>
-          <Search className={styles.searchIcon} size={18} />
-          <input 
-            type="text" 
-            placeholder="Buscar por nombre o correo..." 
+          <Search className={styles.searchIcon} size={18} aria-hidden />
+          <input
+            type="text"
+            placeholder="Buscar por nombre o correo..."
             className={styles.searchInput}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(DEFAULT_PAGE);
+            }}
+            aria-label="Buscar por nombre o correo"
           />
         </div>
 
         <div className={styles.filters}>
-          <Select 
-            value={roleFilter} 
-            onChange={(e) => setRoleFilter(e.target.value)}
+          <select
+            className={styles.select}
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value);
+              setPage(DEFAULT_PAGE);
+            }}
+            aria-label="Filtrar por rol"
           >
             <option value="">Todos los roles</option>
-            {mockRoles.map(role => (
-              <option key={role.id} value={role.id}>{role.name}</option>
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
             ))}
-          </Select>
+          </select>
 
-          <Select 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value)}
+          <select
+            className={styles.select}
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as 'all' | 'active' | 'inactive');
+              setPage(DEFAULT_PAGE);
+            }}
+            aria-label="Filtrar por estado"
           >
-            <option value="">Todos los estados</option>
+            <option value="all">Todos los estados</option>
             <option value="active">Activo</option>
             <option value="inactive">Inactivo</option>
-          </Select>
+          </select>
 
-          {(searchTerm || roleFilter || statusFilter) && (
-            <button 
+          {hasFilters && (
+            <button
+              type="button"
               className={styles.clearBtn}
-              onClick={() => {
-                setSearchTerm('');
-                setRoleFilter('');
-                setStatusFilter('');
-              }}
+              onClick={clearFilters}
+              aria-label="Limpiar filtros"
             >
-              <X size={14} /> Limpiar
+              <X size={14} aria-hidden />
+              Limpiar
             </button>
           )}
         </div>
       </div>
 
-      <UsersTable 
-        users={filteredUsers} 
-        onToggleStatus={handleToggleStatus} 
-      />
+      <UsersTable users={users} onToggleStatus={onToggleStatus} />
 
       <div className={styles.footer}>
         <span className={styles.resultsCount}>
-          Mostrando {filteredUsers.length} de {users.length} usuarios
+          {pagination
+            ? `Mostrando ${pagination.from}-${pagination.to} de ${pagination.total} usuarios`
+            : `Mostrando ${users.length} usuarios`}
         </span>
+        {pagination && (
+          <div className={styles.pagination}>
+            <button
+              type="button"
+              className={styles.pageBtn}
+              disabled={!pagination.hasPrevPage}
+              onClick={() => setPage((p: number) => Math.max(1, p - 1))}
+              aria-label="Página anterior"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className={styles.pageInfo}>
+              Página {pagination.page} de {pagination.totalPages}
+            </span>
+            <button
+              type="button"
+              className={styles.pageBtn}
+              disabled={!pagination.hasNextPage}
+              onClick={() => setPage((p: number) => p + 1)}
+              aria-label="Página siguiente"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

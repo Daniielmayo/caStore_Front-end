@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { RecentProduct } from '../types/dashboard.types';
 import { formatCOP } from '../../../utils/format';
 import { clsx } from 'clsx';
@@ -13,6 +14,8 @@ interface RecentProductsListProps {
 }
 
 export function RecentProductsList({ products, isLoading }: RecentProductsListProps) {
+  const router = useRouter();
+
   if (isLoading) {
     return (
       <div className={styles.card}>
@@ -50,7 +53,14 @@ export function RecentProductsList({ products, isLoading }: RecentProductsListPr
               </tr>
             ) : (
               products.map((p) => (
-                <tr key={p.id} onClick={() => window.location.href = `/products/${p.id}`}>
+                <tr
+                  key={p.id}
+                  className={styles.rowLink}
+                  onClick={() => router.push(`/products/${p.id}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && router.push(`/products/${p.id}`)}
+                >
                   <td className={styles.sku}>{p.sku}</td>
                   <td>
                     <div className={styles.productCell}>

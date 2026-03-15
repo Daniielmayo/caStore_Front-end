@@ -1,8 +1,9 @@
 import React from 'react';
 import { Users, UserCheck, UserX, Shield } from 'lucide-react';
 import Link from 'next/link';
+import clsx from 'clsx';
 import styles from './UserSummaryCards.module.css';
-import { User } from '../../mockData';
+import type { User } from '@/src/features/users/types/users.types';
 
 interface UserSummaryCardsProps {
   users: User[];
@@ -58,8 +59,4 @@ export function UserSummaryCards({ users, roleCount }: UserSummaryCardsProps) {
       </Link>
     </div>
   );
-}
-
-function clsx(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
 }

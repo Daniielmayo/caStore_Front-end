@@ -1,55 +1,78 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Edit2, 
-  Mail, 
-  MoreVertical, 
-  Trash2, 
-  Power, 
-  AlertTriangle,
-  Send,
-  ShieldCheck
-} from 'lucide-react';
+import { Edit2, Mail, Power, Send } from 'lucide-react';
 import Link from 'next/link';
 import clsx from 'clsx';
-import { User, mockRoles } from '../../mockData';
-import { getInitials } from '../../schemas/user.schema';
+import type { User } from '@/src/features/users/types/users.types';
+import { getInitials } from '@/src/features/users/schemas/user.schema';
 import styles from './UsersTable.module.css';
-import { Button } from '../../../../components/ui/Button';
-import { useToast } from '../../../../components/ui/Toast';
+import { Button } from '@/src/components/ui/Button';
+import { useToast } from '@/src/components/ui/Toast';
+import { useResendPassword } from '@/src/features/users/hooks/useUsers';
 
 interface UsersTableProps {
   users: User[];
   onToggleStatus: (id: string, currentStatus: string) => void;
 }
 
+type ConfirmModal = {
+  id: string;
+  name: string;
+  type: 'toggle' | 'reset';
+  currentStatus?: string;
+};
+
+function getRoleBadgeClass(roleName: string): string {
+  const r = roleName.toLowerCase();
+  if (r.includes('admin')) return styles.badgeAdmin;
+  if (r.includes('supervisor')) return styles.badgeSupervisor;
+  if (r.includes('operador')) return styles.badgeOperator;
+  return styles.badgeCustom;
+}
+
 export function UsersTable({ users, onToggleStatus }: UsersTableProps) {
   const { showToast } = useToast();
-  const [confirmModal, setConfirmModal] = useState<{ id: string; name: string; type: 'toggle' | 'reset' } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModal | null>(null);
+  const resendMutation = useResendPassword({
+    onSuccess: (result, id) => {
+      const name = confirmModal?.type === 'reset' ? confirmModal.name : '';
+      setConfirmModal(null);
+      if (result?.success) {
+        showToast({
+          message: result.message ?? `Contraseña temporal enviada a ${name}`,
+          type: 'success',
+        });
+      } else {
+        showToast({
+          message: 'No se pudo enviar la contraseña. Intenta de nuevo.',
+          type: 'error',
+        });
+      }
+    },
+    onError: () => {
+      setConfirmModal(null);
+      showToast({ message: 'Error al reenviar la contraseña', type: 'error' });
+    },
+  });
 
-  const getRoleBadge = (roleId: string) => {
-    const role = mockRoles.find(r => r.id === roleId);
-    if (!role) return { label: 'Sin rol', className: styles.badgeDefault };
-    
-    switch (role.id) {
-      case 'role-admin': return { label: 'Administrador', className: styles.badgeAdmin };
-      case 'role-supervisor': return { label: 'Supervisor', className: styles.badgeSupervisor };
-      case 'role-operator': return { label: 'Operador', className: styles.badgeOperator };
-      default: return { label: role.name, className: styles.badgeCustom };
-    }
+  const handleOpenToggle = (id: string, name: string, currentStatus: string) => {
+    setConfirmModal({ id, name, type: 'toggle', currentStatus });
   };
 
-  const handleResetPassword = (id: string, name: string) => {
+  const handleOpenResetPassword = (id: string, name: string) => {
     setConfirmModal({ id, name, type: 'reset' });
   };
 
-  const executeReset = () => {
-    showToast({ 
-      message: `Contraseña temporal enviada a ${confirmModal?.name}`, 
-      type: 'success' 
-    });
+  const executeToggle = () => {
+    if (!confirmModal || confirmModal.type !== 'toggle' || confirmModal.currentStatus === undefined) return;
+    onToggleStatus(confirmModal.id, confirmModal.currentStatus);
     setConfirmModal(null);
+  };
+
+  const executeResendPassword = () => {
+    if (!confirmModal || confirmModal.type !== 'reset') return;
+    resendMutation.mutate(confirmModal.id);
   };
 
   return (
@@ -69,16 +92,18 @@ export function UsersTable({ users, onToggleStatus }: UsersTableProps) {
           </thead>
           <tbody>
             {users.map((user) => {
-              const roleInfo = getRoleBadge(user.roleId);
               const initials = getInitials(user.name);
               const isAdmin = user.roleId === 'role-admin';
 
               return (
                 <tr key={user.id} className={styles.row}>
-                  <td className={styles.userId}>{user.id.slice(-6)}</td>
+                  <td className={styles.userId}>{user.id.slice(-8)}</td>
                   <td>
                     <div className={styles.userCell}>
-                      <div className={styles.avatar} style={{ backgroundColor: user.avatarColor || '#FFEDD5' }}>
+                      <div
+                        className={styles.avatar}
+                        style={{ backgroundColor: user.avatarColor ?? '#FFEDD5' }}
+                      >
                         {initials}
                       </div>
                       <div className={styles.userInfo}>
@@ -88,46 +113,75 @@ export function UsersTable({ users, onToggleStatus }: UsersTableProps) {
                     </div>
                   </td>
                   <td>
-                    <span className={clsx(styles.badge, roleInfo.className)}>
-                      {roleInfo.label}
+                    <span className={clsx(styles.badge, getRoleBadgeClass(user.roleName))}>
+                      {user.roleName || 'Sin rol'}
                     </span>
                   </td>
                   <td>
-                    <span className={clsx(styles.statusBadge, {
-                      [styles.active]: user.status === 'active',
-                      [styles.inactive]: user.status === 'inactive'
-                    })}>
+                    <span
+                      className={clsx(styles.statusBadge, {
+                        [styles.active]: user.status === 'active',
+                        [styles.inactive]: user.status === 'inactive',
+                      })}
+                    >
                       {user.status === 'active' ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
-                  <td className={styles.dateCell}>{formatRelativeDate(user.lastAccess)}</td>
-                  <td className={styles.dateCell}>{new Date(user.createdAt).toLocaleDateString()}</td>
+                  <td className={styles.dateCell}>
+                    {formatRelativeDate(user.lastAccess)}
+                  </td>
+                  <td className={styles.dateCell}>
+                    {new Date(user.createdAt).toLocaleDateString()}
+                  </td>
                   <td>
                     <div className={styles.actions}>
                       <Link href={`/users/${user.id}`}>
-                        <button className={styles.iconBtn} title="Editar">
+                        <button
+                          type="button"
+                          className={styles.iconBtn}
+                          title="Editar"
+                          aria-label="Editar usuario"
+                        >
                           <Edit2 size={16} />
                         </button>
                       </Link>
-                      
-                      <button 
-                        className={clsx(styles.iconBtn, styles.resetBtn)} 
+
+                      <button
+                        type="button"
+                        className={clsx(styles.iconBtn, styles.resetBtn)}
                         title="Reenviar contraseña"
-                        onClick={() => handleResetPassword(user.id, user.name)}
+                        onClick={() => handleOpenResetPassword(user.id, user.name)}
+                        aria-label="Reenviar contraseña temporal"
                       >
                         <Mail size={16} />
-                        <span className={styles.tooltip}>Reenviar contraseña temporal</span>
+                        <span className={styles.tooltip}>
+                          Reenviar contraseña temporal
+                        </span>
                       </button>
 
                       <div className={styles.toggleWrapper}>
-                        <button 
+                        <button
+                          type="button"
                           className={clsx(styles.toggleBtn, {
                             [styles.toggleActive]: user.status === 'active',
-                            [styles.disabled]: isAdmin
+                            [styles.disabled]: isAdmin,
                           })}
                           disabled={isAdmin}
-                          onClick={() => onToggleStatus(user.id, user.status)}
-                          title={isAdmin ? "No puedes desactivar a otro administrador" : ""}
+                          onClick={() =>
+                            handleOpenToggle(user.id, user.name, user.status)
+                          }
+                          title={
+                            isAdmin
+                              ? 'No puedes desactivar a otro administrador'
+                              : user.status === 'active'
+                                ? 'Desactivar usuario'
+                                : 'Activar usuario'
+                          }
+                          aria-label={
+                            user.status === 'active'
+                              ? 'Desactivar usuario'
+                              : 'Activar usuario'
+                          }
                         >
                           <Power size={14} />
                         </button>
@@ -141,20 +195,67 @@ export function UsersTable({ users, onToggleStatus }: UsersTableProps) {
         </table>
       </div>
 
-      {/* Reset Password Modal */}
-      {confirmModal?.type === 'reset' && (
-        <div className={styles.modalOverlay}>
+      {/* Modal: Toggle estado */}
+      {confirmModal?.type === 'toggle' && confirmModal.currentStatus !== undefined && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="toggle-modal-title">
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
-              <Send className={styles.modalIcon} size={24} />
-              <h3 className={styles.modalTitle}>¿Reenviar contraseña temporal?</h3>
+              <Power className={styles.modalIcon} size={24} aria-hidden />
+              <h3 id="toggle-modal-title" className={styles.modalTitle}>
+                {confirmModal.currentStatus === 'active'
+                  ? '¿Desactivar usuario?'
+                  : '¿Activar usuario?'}
+              </h3>
             </div>
             <p className={styles.modalDesc}>
-              Se generará una nueva contraseña temporal para <strong>{confirmModal.name}</strong> y se enviará al correo registrado. El usuario deberá cambiarla en su próximo acceso.
+              {confirmModal.currentStatus === 'active' ? (
+                <>
+                  El usuario <strong>{confirmModal.name}</strong> no podrá acceder al sistema hasta que sea activado de nuevo.
+                </>
+              ) : (
+                <>
+                  El usuario <strong>{confirmModal.name}</strong> podrá volver a acceder al sistema.
+                </>
+              )}
             </p>
             <div className={styles.modalFooter}>
-              <Button variant="secondary" onClick={() => setConfirmModal(null)}>Cancelar</Button>
-              <Button onClick={executeReset}>Enviar contraseña</Button>
+              <Button variant="secondary" onClick={() => setConfirmModal(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={executeToggle}>
+                {confirmModal.currentStatus === 'active' ? 'Desactivar' : 'Activar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Reenviar contraseña */}
+      {confirmModal?.type === 'reset' && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="resend-modal-title">
+          <div className={styles.modal}>
+            <div className={styles.modalHeader}>
+              <Send className={styles.modalIcon} size={24} aria-hidden />
+              <h3 id="resend-modal-title" className={styles.modalTitle}>
+                ¿Reenviar contraseña temporal?
+              </h3>
+            </div>
+            <p className={styles.modalDesc}>
+              Se generará una nueva contraseña temporal para{' '}
+              <strong>{confirmModal.name}</strong> y se enviará al correo registrado.
+              El usuario deberá cambiarla en su próximo acceso.
+            </p>
+            <div className={styles.modalFooter}>
+              <Button variant="secondary" onClick={() => setConfirmModal(null)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={executeResendPassword}
+                disabled={resendMutation.isPending}
+                isLoading={resendMutation.isPending}
+              >
+                Enviar contraseña
+              </Button>
             </div>
           </div>
         </div>
@@ -163,13 +264,13 @@ export function UsersTable({ users, onToggleStatus }: UsersTableProps) {
   );
 }
 
-function formatRelativeDate(dateStr: string) {
+function formatRelativeDate(dateStr: string): string {
   if (dateStr === 'never') return 'Nunca';
   const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return 'Nunca';
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  
   if (diffHours < 1) return 'Hace poco';
   if (diffHours < 24) return `Hace ${diffHours} h`;
   const diffDays = Math.floor(diffHours / 24);

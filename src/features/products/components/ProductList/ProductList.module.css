@@ -1,3 +1,51 @@
+.statsSection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.statCard:hover {
+  border-color: var(--color-primary-soft);
+}
+
+.statIconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+}
+
+.statContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statLabel {
+  font-size: var(--text-sm);
+  color: var(--color-mid);
+}
+
+.statValue {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
 .controls {
   display: flex;
   align-items: center;
@@ -5,6 +53,16 @@
   gap: var(--space-4);
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-dark-2);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {

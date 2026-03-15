@@ -6,10 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Eye, EyeOff, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import clsx from "clsx";
-
-import styles from "./ResetPassword.module.css";
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthForm } from "../components/AuthForm";
+import { useToast } from "../../../components/ui/Toast";
+import { authService } from "../../../services/auth.service";
+import styles from "./ResetPassword.module.css";
 
 const resetSchema = z
   .object({
@@ -28,13 +29,19 @@ const resetSchema = z
 
 type ResetFormValues = z.infer<typeof resetSchema>;
 
-export default function ResetPassword() {
+interface ResetPasswordProps {
+  token: string;
+}
+
+export default function ResetPassword({ token }: ResetPasswordProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [tokenInvalid, setTokenInvalid] = useState(!token?.trim());
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [countdown, setCountdown] = useState(3);
+  const { showToast } = useToast();
 
   const {
     register,
@@ -62,30 +69,47 @@ export default function ResetPassword() {
     setIsLoading(true);
     setError(null);
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await authService.resetPassword({
+        token,
+        password: data.password,
+        confirm: data.confirmPassword,
+      });
       setIsSuccess(true);
-    } catch (err: any) {
-      setError(
-        err.message ||
-          "Error al cambiar la contraseña. El enlace pudo haber expirado.",
-      );
+      showToast({ message: "Contraseña actualizada correctamente", type: "success" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error al cambiar la contraseña. El enlace pudo haber expirado.";
+      setError(message);
+      showToast({ message: "Error al restablecer la contraseña", type: "error" });
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (isSuccess && countdown > 0) {
       timer = setTimeout(() => setCountdown(countdown - 1), 1000);
     } else if (isSuccess && countdown === 0) {
-      // Redirigir al login o dashboard aquí
-      console.log("Redirecting to dashboard...");
       window.location.href = "/login";
     }
     return () => clearTimeout(timer);
   }, [isSuccess, countdown]);
+
+  if (tokenInvalid) {
+    return (
+      <AuthLayout>
+        <div className={styles.pageWrapper}>
+          <h2 className={styles.title}>Enlace inválido</h2>
+          <p className={styles.subtitle}>
+            El enlace de restablecimiento no es válido o ha expirado. Solicita uno nuevo desde recuperar contraseña.
+          </p>
+          <a href="/recover-password" className={styles.ghostButton}>
+            Recuperar contraseña
+          </a>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout>

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   RefreshCw, 
@@ -17,29 +17,37 @@ import { StockByCategoryChart } from '../../../src/features/dashboard/components
 import { RecentAlertsList } from '../../../src/features/dashboard/components/RecentAlertsList';
 import { RecentProductsList } from '../../../src/features/dashboard/components/RecentProductsList';
 import { DashboardSkeleton } from '../../../src/features/dashboard/components/DashboardSkeleton';
-import { PageWrapper } from '../../../src/components/layout/PageWrapper';
 import { formatCOP } from '../../../src/utils/format';
 import { clsx } from 'clsx';
 import styles from './page.module.css';
-
 import { ProtectedPage } from '../../../src/features/auth/components/ProtectedPage';
-
 import { MockWarning } from '../../../src/components/common/MockWarning/MockWarning';
 import { EmptyState } from '../../../src/components/common/EmptyState/EmptyState';
 import { PackageSearch } from 'lucide-react';
+import { useToast } from '../../../src/components/ui/Toast';
 
 export default function DashboardPage() {
-  const { data, isLoading, error, isUsingMock, isEmpty, refresh } = useDashboard();
+  const { data, isLoading, error, isUsingMock, isEmpty, refresh, isRefetching } = useDashboard();
   const router = useRouter();
+  const { showToast } = useToast();
 
-  if (error && !isUsingMock) {
+  const handleRefresh = useCallback(async () => {
+    const result = await refresh();
+    if (result?.isError) {
+      showToast({ message: 'No se pudo actualizar. Mostrando datos en caché.', type: 'error' });
+    } else {
+      showToast({ message: 'Datos actualizados correctamente', type: 'success' });
+    }
+  }, [refresh, showToast]);
+
+  if (error && !isUsingMock && !data) {
     return (
       <div className={styles.errorContainer}>
         <div className={styles.errorCard}>
           <AlertCircle size={48} className={styles.errorIcon} />
           <h3>Error al cargar el dashboard</h3>
           <p>{error}</p>
-          <button onClick={refresh} className={styles.retryBtn}>
+          <button onClick={handleRefresh} className={styles.retryBtn}>
             <RefreshCw size={16} />
             Reintentar
           </button>
@@ -59,8 +67,8 @@ export default function DashboardPage() {
             <p className={styles.subtitle}>Resumen general del estado del inventario</p>
           </div>
           <button 
-            className={clsx(styles.refreshBtn, isLoading && styles.spinning)} 
-            onClick={refresh}
+            className={clsx(styles.refreshBtn, (isLoading || isRefetching) && styles.spinning)} 
+            onClick={handleRefresh}
             disabled={isLoading}
           >
             <RefreshCw size={18} />
@@ -75,7 +83,7 @@ export default function DashboardPage() {
             title="No hay datos disponibles" 
             message="No se han encontrado registros para mostrar en el dashboard actualmente."
             icon={<PackageSearch size={48} />}
-            action={{ label: 'Reintentar actualización', onClick: refresh }}
+            action={{ label: 'Reintentar actualización', onClick: handleRefresh }}
           />
         ) : (
           data && (
@@ -122,6 +130,7 @@ export default function DashboardPage() {
                   icon={<DollarSign size={22} />}
                   iconColor="var(--color-success)"
                   iconBg="#DCFCE7"
+                  onClick={() => router.push('/products')}
                 />
               </section>
 

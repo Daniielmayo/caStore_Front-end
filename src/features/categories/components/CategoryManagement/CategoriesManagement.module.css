@@ -164,3 +164,17 @@
   color: var(--color-dark-2);
   line-height: 1.5;
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.paginationInfo {
+  font-size: var(--text-sm);
+  color: var(--color-mid);
+}

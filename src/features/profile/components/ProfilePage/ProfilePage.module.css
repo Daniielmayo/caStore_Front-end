@@ -445,6 +445,27 @@
 .dangerTextBtn:hover { text-decoration: underline; }
 .dangerTextBtn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
 
+/* Placeholder cuando no hay sesiones expuestas por el backend */
+.sessionsPlaceholder {
+  padding: var(--space-8);
+  text-align: center;
+  background-color: #F8FAFC;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.sessionsPlaceholderIcon {
+  color: var(--color-mid);
+  margin-bottom: var(--space-3);
+}
+
+.sessionsPlaceholderText {
+  font-size: var(--text-sm);
+  color: var(--color-mid);
+  line-height: 1.6;
+  margin: 0;
+}
+
 /* Modal */
 .modalOverlay {
   position: fixed;

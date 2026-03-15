@@ -4,19 +4,18 @@ import {
   AuthState, 
   LoginCredentials 
 } from '../features/auth/types/auth.types';
-import { 
-  getStoredToken, 
-  getStoredUser, 
-  storeToken, 
-  storeUser, 
-  clearAuth,
-  parseJwt 
+import {
+  getStoredToken,
+  getStoredUser,
+  storeToken,
+  storeUser,
+  parseJwt,
 } from '../lib/auth';
 import { authService } from '../services/auth.service';
 
 interface AuthActions {
   loginAction: (credentials: LoginCredentials) => Promise<void>;
-  logoutAction: () => void;
+  logoutAction: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setIsLoading: (loading: boolean) => void;
 }
@@ -61,8 +60,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
     }
   },
 
-  logoutAction: () => {
-    clearAuth();
+  logoutAction: async () => {
+    await authService.logout();
     set({
       user: null,
       token: null,

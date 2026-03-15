@@ -66,6 +66,23 @@
   color: var(--color-mid);
 }
 
+.dateInput {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: var(--text-sm);
+  background: var(--color-surface);
+}
+
+.errorText,
+.loadingText {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-mid);
+}
+
+.errorText { color: var(--color-error); }
+
 .exportActions { display: flex; gap: var(--space-2); }
 
 .tableCard {

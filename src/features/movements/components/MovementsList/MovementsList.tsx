@@ -1,96 +1,88 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Search, Filter, Download, Plus, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, Filter, Download, Plus } from 'lucide-react';
 import Link from 'next/link';
 import styles from './MovementsList.module.css';
-import { mockMovements, Movement } from '../../mockData';
 import { MovementSummaryCards } from './MovementSummaryCards';
 import { MovementsTable } from './MovementsTable';
-import { Input } from '../../../../components/ui/Input';
-import { Button } from '../../../../components/ui/Button';
-import { Select } from '../../../../components/ui/Select';
-import { Pagination } from '../../../../components/tables/Pagination';
+import { Input } from '@/src/components/ui/Input';
+import { Button } from '@/src/components/ui/Button';
+import { Select } from '@/src/components/ui/Select';
+import { Pagination } from '@/src/components/tables/Pagination';
+import { useMovementsList } from '../../hooks/useMovements';
+import type { MovementTypeApi } from '../../types/movements.types';
+import { useDebounce } from '@/src/hooks/useDebounce';
 
 export function MovementsList() {
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<MovementTypeApi | 'all'>('all');
   const [page, setPage] = useState(1);
-  const itemsPerPage = 10;
+  const pageSize = 10;
 
-  // Filter logic
-  const filteredMovements = useMemo(() => {
-    return mockMovements.filter(m => {
-      const matchesSearch = 
-        m.productName.toLowerCase().includes(search.toLowerCase()) || 
-        m.sku.toLowerCase().includes(search.toLowerCase()) ||
-        m.documentRef.toLowerCase().includes(search.toLowerCase());
-      
-      const matchesType = typeFilter === 'all' || m.type === typeFilter;
-      
-      return matchesSearch && matchesType;
-    });
-  }, [search, typeFilter]);
+  const debouncedSearch = useDebounce(search, 300);
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredMovements.length / itemsPerPage);
-  const paginatedMovements = filteredMovements.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const {
+    data: movements,
+    pagination,
+    isLoading,
+    isFetching,
+    refetch,
+    isUsingMock,
+  } = useMovementsList({
+    page,
+    limit: pageSize,
+    search: debouncedSearch || undefined,
+    type: typeFilter,
+  });
 
-  // Totals for footer
-  const periodTotals = useMemo(() => {
-    const entries = filteredMovements
-      .filter(m => m.type.includes('entry') || m.type === 'adjustment_pos')
-      .reduce((acc, curr) => acc + curr.quantity, 0);
-    const exits = filteredMovements
-      .filter(m => m.type.includes('exit') || m.type === 'adjustment_neg')
-      .reduce((acc, curr) => acc + curr.quantity, 0);
-    
-    return {
-      entries,
-      exits,
-      balance: entries - exits
-    };
-  }, [filteredMovements]);
+  const periodTotals = React.useMemo(() => {
+    const entries = movements.filter((m) =>
+      ['PURCHASE_ENTRY', 'POSITIVE_ADJUSTMENT', 'RETURN'].includes(m.type)
+    ).reduce((acc, curr) => acc + curr.quantity, 0);
+    const exits = movements.filter((m) =>
+      ['SALE_EXIT', 'NEGATIVE_ADJUSTMENT'].includes(m.type)
+    ).reduce((acc, curr) => acc + curr.quantity, 0);
+    return { entries, exits, balance: entries - exits };
+  }, [movements]);
 
   return (
     <div className={styles.container}>
-      <MovementSummaryCards movements={mockMovements} />
+      <MovementSummaryCards />
 
       <div className={styles.actionBar}>
         <div className={styles.searchSection}>
           <div className={styles.searchWrapper}>
-            <Input 
+            <Input
               placeholder="Buscar por producto, SKU o documento..."
               icon={Search}
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
           <div className={styles.filterWrapper}>
-            <Select 
+            <Select
               value={typeFilter}
-              onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setTypeFilter((e.target.value as MovementTypeApi | 'all'));
+                setPage(1);
+              }}
             >
               <option value="all">Todos los tipos</option>
-              <option value="purchase_entry">Entrada por compra</option>
-              <option value="sale_exit">Salida por venta</option>
-              <option value="transfer">Transferencia</option>
-              <option value="adjustment_pos">Ajuste positivo</option>
-              <option value="adjustment_neg">Ajuste negativo</option>
-              <option value="return">Devolución</option>
+              <option value="PURCHASE_ENTRY">Entrada por compra</option>
+              <option value="SALE_EXIT">Salida por venta</option>
+              <option value="TRANSFER">Transferencia</option>
+              <option value="POSITIVE_ADJUSTMENT">Ajuste positivo</option>
+              <option value="NEGATIVE_ADJUSTMENT">Ajuste negativo</option>
+              <option value="RETURN">Devolución</option>
             </Select>
           </div>
         </div>
 
         <div className={styles.exportSection}>
-          <Button variant="secondary" className={styles.exportBtn}>
-            <Download size={18} />
-            CSV
-          </Button>
-          <Button variant="secondary" className={styles.exportBtn}>
-            <Download size={18} />
-            Excel
-          </Button>
           <Link href="/movements/new">
             <Button>
               <Plus size={18} />
@@ -101,8 +93,11 @@ export function MovementsList() {
       </div>
 
       <div className={styles.tableContainer}>
-        <MovementsTable movements={paginatedMovements} />
-        
+        <MovementsTable
+          movements={movements}
+          isLoading={isLoading || isFetching}
+        />
+
         <div className={styles.footerSummary}>
           <div className={styles.periodLabel}>Resumen del período filtrado:</div>
           <div className={styles.totalsRow}>
@@ -123,15 +118,17 @@ export function MovementsList() {
           </div>
         </div>
 
-        <div className={styles.paginationBox}>
-          <Pagination 
-            currentPage={page}
-            totalCount={filteredMovements.length}
-            pageSize={itemsPerPage}
-            onPageChange={setPage}
-            onPageSizeChange={() => {}} // Simple placeholder as per mock
-          />
-        </div>
+        {pagination && (
+          <div className={styles.paginationBox}>
+            <Pagination
+              currentPage={pagination.page}
+              totalCount={pagination.total}
+              pageSize={pagination.limit}
+              onPageChange={setPage}
+              onPageSizeChange={() => {}}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

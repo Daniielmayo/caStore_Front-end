@@ -1,3 +1,10 @@
+import type {
+  SupplierWithStatsApi,
+  SupplierTypeApi,
+  ContributorTypeApi,
+  PurchaseHistoryItemApi,
+} from './types/suppliers.types';
+
 export type SupplierType = 'Nacional' | 'Internacional' | 'Fabricante' | 'Distribuidor';
 export type TaxpayerType = 'Persona Natural' | 'Persona Jurídica' | 'Gran Contribuyente' | 'Régimen Simplificado';
 
@@ -334,3 +341,102 @@ export const mockSuppliers: Supplier[] = [
     createdAt: '2024-03-10T12:00:00Z',
   }
 ];
+
+// --- Mocks con forma API (SupplierWithStatsApi) para fallback cuando el backend no responde ---
+const typeToApi: Record<string, SupplierTypeApi> = {
+  Nacional: 'NATIONAL',
+  Internacional: 'INTERNATIONAL',
+  Fabricante: 'MANUFACTURER',
+  Distribuidor: 'DISTRIBUTOR',
+};
+const taxpayerToApi: Record<string, ContributorTypeApi> = {
+  'Persona Natural': 'NON_CONTRIBUTOR',
+  'Persona Jurídica': 'COMMON',
+  'Gran Contribuyente': 'LARGE',
+  'Régimen Simplificado': 'SIMPLIFIED',
+};
+
+export const MOCK_SUPPLIERS_API: SupplierWithStatsApi[] = mockSuppliers.slice(0, 12).map((s) => ({
+  id: s.id,
+  legalName: s.businessName,
+  tradeName: s.commercialName,
+  taxId: s.nit,
+  type: typeToApi[s.type] ?? 'NATIONAL',
+  contributorType: taxpayerToApi[s.taxpayerType] ?? 'COMMON',
+  country: s.country,
+  state: s.department || null,
+  city: s.city,
+  address: s.address || null,
+  phone: s.phone || null,
+  email: s.email || null,
+  contactName: s.contactPerson || null,
+  paymentTerms: s.paymentTerms || null,
+  currency: s.currency,
+  website: s.website || null,
+  notes: s.observations || null,
+  createdAt: s.createdAt,
+  updatedAt: s.createdAt,
+  totalMovements: s.stats?.totalOrders ?? 0,
+  totalUnits: s.stats?.totalUnits ?? 0,
+  lastPurchaseDate: s.stats ? '2024-03-01T12:00:00Z' : null,
+}));
+
+export const MOCK_PURCHASES_API: PurchaseHistoryItemApi[] = [
+  {
+    id: 'mov-1',
+    quantity: 50,
+    unitCost: 250000,
+    totalCost: 12500000,
+    docReference: 'FAC-00129',
+    lotNumber: 'LOT-2024-001',
+    createdAt: '2024-03-12T10:00:00Z',
+    productId: 'prod-1',
+    productSku: 'MFIL-00001',
+    productName: 'Filtro Aceite Bosch',
+    registeredBy: 'Juan Pérez',
+  },
+];
+
+export function getMockPaginatedSuppliers(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: SupplierTypeApi;
+  city?: string;
+}): { data: SupplierWithStatsApi[]; pagination: { total: number; page: number; limit: number; totalPages: number; hasNextPage: boolean; hasPrevPage: boolean; nextPage: number | null; prevPage: number | null; from: number; to: number } } {
+  const page = params.page ?? 1;
+  const limit = params.limit ?? 10;
+  let list = [...MOCK_SUPPLIERS_API];
+  if (params.search) {
+    const q = params.search.toLowerCase();
+    list = list.filter(
+      (s) =>
+        s.legalName.toLowerCase().includes(q) ||
+        s.tradeName.toLowerCase().includes(q) ||
+        s.taxId.replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+        s.city.toLowerCase().includes(q)
+    );
+  }
+  if (params.type) list = list.filter((s) => s.type === params.type);
+  if (params.city) list = list.filter((s) => s.city.toLowerCase().includes(params.city!.toLowerCase()));
+  const total = list.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const from = total === 0 ? 0 : (page - 1) * limit + 1;
+  const to = total === 0 ? 0 : Math.min(page * limit, total);
+  const data = list.slice((page - 1) * limit, page * limit);
+  return {
+    data,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+      nextPage: page < totalPages ? page + 1 : null,
+      prevPage: page > 1 ? page - 1 : null,
+      from,
+      to,
+    },
+  };
+}

@@ -22,9 +22,11 @@ import styles from './RoleDetail.module.css';
 
 interface RoleDetailProps {
   role: Role;
+  onDelete?: (id: string) => void;
+  onClone?: (role: Role) => void;
 }
 
-export function RoleDetail({ role }: RoleDetailProps) {
+export function RoleDetail({ role, onDelete, onClone }: RoleDetailProps) {
   const router = useRouter();
   const isSystem = role.type === 'system';
   
@@ -72,7 +74,7 @@ export function RoleDetail({ role }: RoleDetailProps) {
 
         <div className={styles.headerActions}>
           {isSystem ? (
-            <Button variant="secondary">
+            <Button variant="secondary" onClick={() => onClone?.(role)}>
               <Copy size={18} />
               <span>Clonar este rol</span>
             </Button>
@@ -82,7 +84,11 @@ export function RoleDetail({ role }: RoleDetailProps) {
                 <Edit3 size={18} />
                 <span>Editar rol</span>
               </Button>
-              <Button variant="danger" disabled={roleUsers.length > 0}>
+              <Button
+                variant="danger"
+                disabled={roleUsers.length > 0}
+                onClick={() => onDelete?.(role.id)}
+              >
                 <Trash2 size={18} />
                 <span>Eliminar</span>
               </Button>

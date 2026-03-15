@@ -6,10 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Eye, EyeOff, AlertCircle, Check, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import api from '../../../src/lib/api';
 import { AuthLayout } from '../../../src/features/auth/components/AuthLayout';
 import { AuthForm } from '../../../src/features/auth/components/AuthForm';
 import { useAuth } from '../../../src/hooks/useAuth';
+import { useToast } from '../../../src/components/ui/Toast';
 import styles from './ChangePassword.module.css';
 
 const changePasswordSchema = z.object({
@@ -31,8 +32,9 @@ export default function ChangePasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
-  const { refreshUser, token } = useAuth();
+  const { refreshUser } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const {
     register,
@@ -55,19 +57,23 @@ export default function ChangePasswordPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-      await axios.patch(`${API_URL}/users/me/password`, {
+      await api.patch('/users/me/password', {
         currentPassword: data.currentPassword,
         newPassword: data.newPassword,
-        confirm: data.confirm
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
+        confirm: data.confirm,
       });
-      
       await refreshUser();
+      showToast({ message: 'Contraseña actualizada correctamente', type: 'success' });
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al cambiar la contraseña');
+    } catch (err: unknown) {
+      const msg =
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        (err as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      const message = msg ? String(msg) : 'Error al cambiar la contraseña';
+      setError(message);
+      showToast({ message: 'Error al cambiar la contraseña', type: 'error' });
     } finally {
       setIsLoading(false);
     }

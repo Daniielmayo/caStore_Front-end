@@ -1,10 +1,11 @@
-import { KardexReport } from "@/src/features/movements/components/Kardex/KardexReport";
-import { PageWrapper } from "@/src/components/layout/PageWrapper";
+import { KardexReport } from '@/src/features/movements/components/Kardex/KardexReport';
+import { PageWrapper } from '@/src/components/layout/PageWrapper';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import styles from './KardexPage.module.css';
 
-export default function ProductKardexPage({ params }: { params: { id: string } }) {
+export default async function ProductKardexPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   return (
     <PageWrapper
       title="Kardex de Producto"
@@ -16,7 +17,7 @@ export default function ProductKardexPage({ params }: { params: { id: string } }
         </Link>
       }
     >
-      <KardexReport productId={params.id} />
+      <KardexReport productId={id} />
     </PageWrapper>
   );
 }

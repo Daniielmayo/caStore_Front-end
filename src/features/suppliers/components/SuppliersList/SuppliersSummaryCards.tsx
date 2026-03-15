@@ -1,17 +1,22 @@
 import React from 'react';
 import { Building2, Map, Globe, TrendingUp } from 'lucide-react';
+import clsx from 'clsx';
 import styles from './SuppliersSummaryCards.module.css';
-import { Supplier } from '../../mockData';
+import type { SupplierWithStatsApi } from '../../types/suppliers.types';
 
 interface SuppliersSummaryCardsProps {
-  suppliers: Supplier[];
+  suppliers: SupplierWithStatsApi[];
+  totalCount?: number;
 }
 
-export function SuppliersSummaryCards({ suppliers }: SuppliersSummaryCardsProps) {
-  const total = suppliers.length;
-  const national = suppliers.filter(s => s.type === 'Nacional').length;
-  const international = suppliers.filter(s => s.type === 'Internacional').length;
-  const monthlyPurchases = 125800000; // Mocked aggregate
+export function SuppliersSummaryCards({ suppliers, totalCount }: SuppliersSummaryCardsProps) {
+  const total = totalCount ?? suppliers.length;
+  const national = suppliers.filter((s) => s.type === 'NATIONAL').length;
+  const international = suppliers.filter((s) => s.type === 'INTERNATIONAL').length;
+  const monthlyPurchases = suppliers.reduce(
+    (acc, s) => acc + (s.totalUnits ?? 0) * 1000,
+    0
+  );
 
   const formatCOP = (val: number) => 
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
@@ -59,9 +64,4 @@ export function SuppliersSummaryCards({ suppliers }: SuppliersSummaryCardsProps)
       </div>
     </div>
   );
-}
-
-// Utility class merger helper for this component scope
-function clsx(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
 }

@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
-import { useAuth } from '../../../hooks/useAuth';
+import { useAuth } from '@/src/hooks/useAuth';
+import { useAlertsSummary } from '@/src/features/alerts/hooks/useAlerts';
 import styles from './Topbar.module.css';
 
 const routeTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
+  '/profile': 'Mi Perfil',
   '/products': 'Gestión de Productos',
   '/alerts': 'Alertas de Inventario',
   '/movements': 'Movimientos',
@@ -21,13 +23,28 @@ export function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logoutAction } = useAuth();
+  const { activeCount } = useAlertsSummary();
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const title = routeTitles[pathname] || 'Dashboard';
 
-  const handleLogout = () => {
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    if (showDropdown) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showDropdown]);
+
+  const handleLogout = async () => {
     if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-      logoutAction();
+      setShowDropdown(false);
+      await logoutAction();
       router.push('/login');
     }
   };
@@ -41,12 +58,23 @@ export function Topbar() {
       <div className={styles.right}>
         <button className={styles.notifyBtn} onClick={() => router.push('/alerts')}>
           <Bell size={20} />
-          <span className={styles.badge}>3</span>
+          {activeCount > 0 && (
+            <span className={styles.badge}>{activeCount > 99 ? '99+' : activeCount}</span>
+          )}
         </button>
 
         <div className={styles.divider} />
 
-        <div className={styles.userSection} onClick={() => setShowDropdown(!showDropdown)}>
+        <div
+          ref={dropdownRef}
+          className={styles.userSection}
+          onClick={() => setShowDropdown(!showDropdown)}
+          onKeyDown={(e) => e.key === 'Enter' && setShowDropdown(!showDropdown)}
+          role="button"
+          tabIndex={0}
+          aria-haspopup="true"
+          aria-expanded={showDropdown}
+        >
           <div className={styles.avatar}>
             {user?.fullName?.charAt(0) || 'U'}
           </div>

@@ -1,16 +1,11 @@
-export interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  parentId?: string; // Optional, indicates subcategory
-  skuPrefix: string;
-  productCount: number;
-  icon?: string;
-  color?: string;
-  createdAt: string;
-}
+import type { Category } from './types/categories.types';
 
-export const mockCategories: Category[] = [
+export type { Category } from './types/categories.types';
+
+/** Mock plano (sin parentName; se rellena en el hook). */
+export type MockCategoryItem = Omit<Category, 'parentName'> & { parentName?: null };
+
+export const mockCategories: MockCategoryItem[] = [
   // Categorías Principales
   {
     id: 'cat-1',

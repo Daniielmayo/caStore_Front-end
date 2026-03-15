@@ -6,9 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { ArrowLeft, AlertCircle, CheckCircle2 } from "lucide-react";
 import clsx from "clsx";
-import styles from "./RecoverPassword.module.css";
+import Link from "next/link";
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthForm } from "../components/AuthForm";
+import { useToast } from "../../../components/ui/Toast";
+import { authService } from "../../../services/auth.service";
+import styles from "./RecoverPassword.module.css";
 
 const recoverSchema = z.object({
   email: z.string().email("Ingresa un correo electrónico válido"),
@@ -20,6 +23,7 @@ export default function RecoverPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const {
     register,
@@ -33,13 +37,16 @@ export default function RecoverPassword() {
     setIsLoading(true);
     setError(null);
     try {
-      // Simular llamada a API
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await authService.recoverPassword(data.email);
       setIsSuccess(true);
-    } catch (err: any) {
-      setError(
-        err.message || "Ocurrió un error inesperado al enviar el enlace.",
-      );
+      showToast({
+        message: "Si el correo existe, recibirás el enlace en minutos",
+        type: "success",
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Ocurrió un error inesperado al enviar el enlace.";
+      setError(message);
+      showToast({ message: "Error al enviar el enlace de recuperación", type: "error" });
     } finally {
       setIsLoading(false);
     }
@@ -48,10 +55,10 @@ export default function RecoverPassword() {
   return (
     <AuthLayout>
       <div className={styles.backLinkWrapper}>
-        <a href="/login" className={styles.backLink}>
+        <Link href="/login" className={styles.backLink}>
           <ArrowLeft className="h-4 w-4" />
           Volver al login
-        </a>
+        </Link>
       </div>
 
       <div className={styles.pageWrapper}>
@@ -70,9 +77,9 @@ export default function RecoverPassword() {
               enlace en minutos.
             </p>
           </div>
-          <a href="/login" className={styles.ghostButton}>
+          <Link href="/login" className={styles.ghostButton}>
             Volver al login
-          </a>
+          </Link>
         </div>
       ) : (
         <AuthForm onSubmit={handleSubmit(onSubmit)} isLoading={isLoading}>

@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { 
-  ArrowLeft, 
-  FilePlus, 
-  Shield, 
-  ShieldAlert, 
-  ShieldCheck, 
-  Lock,
+import {
+  ArrowLeft,
+  FilePlus,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
   LayoutDashboard,
   Package,
   Bell,
@@ -19,7 +18,7 @@ import {
   FolderTree,
   MapPin,
   AlertTriangle,
-  Info
+  Info,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -31,11 +30,16 @@ import { RoleCard } from '../RolesList/RoleCard';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { useToast } from '../../../../components/ui/Toast';
+import { useCreateRole, useUpdateRole } from '@/src/features/roles/hooks/useRoles';
+import { formDataToCreateDto } from '@/src/features/roles/types/roles.types';
+import { rolesService, getRoleErrorMessage } from '@/src/services/roles.service';
 import styles from './RoleForm.module.css';
 
 interface RoleFormProps {
   initialData?: Role;
   isEdit?: boolean;
+  /** ID del rol en edición (requerido cuando isEdit es true para llamar a PATCH). */
+  roleId?: string;
 }
 
 const TEMPLATES = [
@@ -76,12 +80,17 @@ const SIDEBAR_ITEMS = [
   { id: 'locations', label: 'Ubicaciones', icon: MapPin },
 ];
 
-export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
+const DEBOUNCE_MS = 500;
+
+export function RoleForm({ initialData, isEdit = false, roleId }: RoleFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('scratch');
+  const createRole = useCreateRole();
+  const updateRole = useUpdateRole();
+  const isSystemRole = Boolean(isEdit && initialData?.type === 'system');
+  const isLoading = createRole.isPending || updateRole.isPending;
 
   const defaultValues = useMemo(() => {
     // Check if cloning from URL (from CloneRoleModal)
@@ -110,21 +119,45 @@ export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
     return { name: '', description: '', permissions: perms };
   }, [initialData, searchParams]);
 
-  const { 
-    register, 
-    handleSubmit, 
-    watch, 
-    setValue, 
-    formState: { errors } 
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    setError,
+    clearErrors,
+    formState: { errors },
   } = useForm<RoleFormData>({
     resolver: zodResolver(roleSchema),
-    defaultValues: defaultValues as any,
-    mode: 'onChange'
+    defaultValues: defaultValues as RoleFormData,
+    mode: 'onChange',
   });
 
   const watchedPermissions = watch('permissions');
   const watchedName = watch('name');
   const watchedDesc = watch('description');
+
+  // Validación de nombre único con debounce 500 ms
+  useEffect(() => {
+    const name = typeof watchedName === 'string' ? watchedName.trim() : '';
+    if (name.length < 2) {
+      clearErrors('name');
+      return;
+    }
+    const t = setTimeout(async () => {
+      const result = await rolesService.getRoles({ search: name, limit: 20 });
+      if (!result?.data) return;
+      const exists = result.data.some(
+        (r) => r.name.toLowerCase() === name.toLowerCase() && (!isEdit || r.id !== roleId)
+      );
+      if (exists) {
+        setError('name', { type: 'manual', message: 'Ya existe un rol con ese nombre' });
+      } else {
+        clearErrors('name');
+      }
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [watchedName, isEdit, roleId, setError, clearErrors]);
 
   const applyTemplate = (templateId: string) => {
     setSelectedTemplate(templateId);
@@ -158,17 +191,28 @@ export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
     };
   }, [watchedPermissions]);
 
-  const onSubmit = async (data: any) => {
-    setIsLoading(true);
-    // Simulated delay
-    await new Promise(r => setTimeout(r, 1500));
-    showToast({ 
-      message: isEdit ? 'Rol actualizado exitosamente' : 'Rol creado exitosamente', 
-      type: 'success' 
-    });
-    setIsLoading(false);
-    router.push('/roles');
-  };
+  const onSubmit = useCallback(
+    async (data: RoleFormData) => {
+      const dto = formDataToCreateDto(
+        data.permissions as Record<string, PermissionSet>,
+        data.name,
+        data.description
+      );
+      try {
+        if (isEdit && roleId) {
+          await updateRole.mutateAsync({ id: roleId, dto });
+          showToast({ message: 'Rol actualizado correctamente', type: 'success' });
+        } else {
+          await createRole.mutateAsync(dto);
+          showToast({ message: 'Rol creado correctamente', type: 'success' });
+        }
+        router.push('/roles');
+      } catch (err) {
+        showToast({ message: getRoleErrorMessage(err), type: 'error' });
+      }
+    },
+    [isEdit, roleId, createRole, updateRole, showToast, router]
+  );
 
   const previewRole: Role = {
     id: 'preview',
@@ -195,11 +239,18 @@ export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
         </Button>
       </header>
 
-      {isEdit && initialData?.userCount && initialData.userCount > 0 && (
+      {isSystemRole && (
+        <div className={styles.errorBanner}>
+          <AlertTriangle size={18} />
+          <span>Los roles del sistema no pueden modificarse. Puedes clonar este rol para crear una copia editable.</span>
+        </div>
+      )}
+
+      {isEdit && initialData?.userCount && initialData.userCount > 0 && !isSystemRole && (
         <div className={styles.bannerInfo}>
           <Info size={18} />
           <span>
-            Este rol tiene <strong>{initialData.userCount} usuarios</strong> asignados. 
+            Este rol tiene <strong>{initialData.userCount} usuarios</strong> asignados.
             Los cambios se aplicarán inmediatamente. <Link href={`/users?role=${initialData.id}`}>Ver usuarios afectados →</Link>
           </span>
         </div>
@@ -212,12 +263,13 @@ export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
             <h2 className={styles.sectionTitle}>Identidad del rol</h2>
             <div className={styles.fieldGrid}>
               <div className={styles.fieldGroup}>
-                <Input 
-                  label="Nombre del rol" 
-                  {...register('name')} 
-                  error={errors.name?.message as string} 
+                <Input
+                  label="Nombre del rol"
+                  {...register('name')}
+                  error={errors.name?.message as string}
                   required
                   placeholder="Ej: Auditor Externo"
+                  disabled={isSystemRole}
                 />
                 <div className={styles.badgePreviewRow}>
                    <span className={styles.previewLabel}>Vista previa badge:</span>
@@ -226,11 +278,12 @@ export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
               </div>
               <div className={styles.fieldGroup}>
                 <label className={styles.fieldLabel}>Descripción (Opcional)</label>
-                <textarea 
+                <textarea
                   className={clsx(styles.textarea, { [styles.errorArea]: errors.description })}
                   {...register('description')}
                   placeholder="Ej: Acceso de lectura para auditores externos"
                   maxLength={200}
+                  disabled={isSystemRole}
                 />
                 <div className={styles.counter}>{watchedDesc?.length || 0}/200</div>
                 {errors.description && <span className={styles.errorText}>{errors.description.message as string}</span>}
@@ -248,12 +301,13 @@ export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
               <div className={styles.templateGrid}>
                 {TEMPLATES.map(template => {
                   const Icon = template.icon;
-                  return (
+                    return (
                     <button
                       key={template.id}
                       type="button"
                       className={clsx(styles.templateCard, { [styles.selectedTemplate]: selectedTemplate === template.id })}
                       onClick={() => applyTemplate(template.id)}
+                      disabled={isSystemRole}
                     >
                       <div className={styles.templateIcon}><Icon size={20} /></div>
                       <div className={styles.templateInfo}>
@@ -270,9 +324,10 @@ export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
           {/* Matrix Section */}
           <section className={styles.formSection}>
              <h2 className={styles.sectionTitle}>Permisos detallados</h2>
-             <PermissionMatrix 
-               permissions={watchedPermissions} 
-               onChange={handlePermissionChange} 
+             <PermissionMatrix
+               permissions={watchedPermissions}
+               onChange={handlePermissionChange}
+               readonly={isSystemRole}
              />
              {naturalSummary.counts.full === 0 && naturalSummary.counts.partial === 0 && (
                <div className={styles.errorBanner}>
@@ -284,10 +339,10 @@ export function RoleForm({ initialData, isEdit = false }: RoleFormProps) {
 
           <footer className={styles.formFooter}>
             <Button variant="secondary" type="button" onClick={() => router.push('/roles')}>Cancelar</Button>
-            <Button 
-              type="submit" 
-              isLoading={isLoading} 
-              disabled={naturalSummary.counts.full === 0 && naturalSummary.counts.partial === 0}
+            <Button
+              type="submit"
+              isLoading={isLoading}
+              disabled={isSystemRole || (naturalSummary.counts.full === 0 && naturalSummary.counts.partial === 0)}
             >
               {isEdit ? 'Guardar cambios' : 'Crear rol'}
             </Button>

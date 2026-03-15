@@ -2,119 +2,138 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, ShieldCheck, Eye, AlertTriangle, Calendar, CalendarClock, Info } from 'lucide-react';
+import { Download, ShieldCheck, Eye, AlertTriangle, Calendar, CalendarClock } from 'lucide-react';
 import styles from './AlertsList.module.css';
-import { mockAlerts, Alert } from '../../mockData';
+import type { Alert } from '../../types/alerts.types';
 import { AlertSummaryCards } from './AlertSummaryCards';
 import { AlertFilters } from './AlertFilters';
-import { DataTable } from '../../../../components/tables/DataTable';
-import { Pagination } from '../../../../components/tables/Pagination';
-import { Button } from '../../../../components/ui/Button';
-import { Badge } from '../../../../components/ui/Badge';
-import { Modal } from '../../../../components/ui/Modal';
-import { Input } from '../../../../components/ui/Input';
-import { useDebounce } from '../../../../hooks/useDebounce';
-import { useToast } from '../../../../components/ui/Toast';
+import { DataTable } from '@/src/components/tables/DataTable';
+import { Pagination } from '@/src/components/tables/Pagination';
+import { Button } from '@/src/components/ui/Button';
+import { Badge } from '@/src/components/ui/Badge';
+import { Modal } from '@/src/components/ui/Modal';
+import { Input } from '@/src/components/ui/Input';
+import { useToast } from '@/src/components/ui/Toast';
+import {
+  useAlertsList,
+  useAlertsSummary,
+  useResolveAlert,
+  useDismissAlert,
+  type AlertsListPagination,
+} from '../../hooks/useAlerts';
+import { SkeletonTable } from '@/src/components/common/Skeleton/SkeletonTable';
 
 export function AlertsList() {
   const router = useRouter();
   const { showToast } = useToast();
-  
-  // State
-  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
-  const [isLoading, setIsLoading] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  
-  // Resolution Modal State
+
   const [resolvingAlert, setResolvingAlert] = useState<Alert | null>(null);
   const [resolutionNote, setResolutionNote] = useState('');
-  const [isResolving, setIsResolving] = useState(false);
+  const [dismissingAlert, setDismissingAlert] = useState<Alert | null>(null);
+  const [dismissNote, setDismissNote] = useState('');
 
-  const debouncedSearch = useDebounce(searchQuery, 300);
+  const { summary, isLoading: summaryLoading, activeCount } = useAlertsSummary();
+  const {
+    alerts,
+    pagination,
+    isLoading: listLoading,
+    isFetching,
+    refresh,
+  } = useAlertsList({
+    page,
+    limit: pageSize,
+    type: typeFilter === 'all' ? undefined : typeFilter,
+    status: statusFilter === 'all' ? undefined : statusFilter,
+  });
 
-  // Filtering
-  const filteredAlerts = useMemo(() => {
-    return alerts.filter(alert => {
-      const matchSearch = debouncedSearch === '' || 
-        alert.productName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        alert.productSku.toLowerCase().includes(debouncedSearch.toLowerCase());
-      
-      const matchStatus = statusFilter === 'all' || alert.status === statusFilter;
-      const matchType = typeFilter === 'all' || alert.type === typeFilter;
+  const resolveMutation = useResolveAlert();
+  const dismissMutation = useDismissAlert();
 
-      return matchSearch && matchStatus && matchType;
-    });
-  }, [alerts, debouncedSearch, statusFilter, typeFilter]);
+  const filteredBySearch = useMemo(() => {
+    if (!searchQuery.trim()) return alerts;
+    const q = searchQuery.toLowerCase().trim();
+    return alerts.filter(
+      (a) =>
+        a.productName.toLowerCase().includes(q) || a.productSku.toLowerCase().includes(q)
+    );
+  }, [alerts, searchQuery]);
 
-  // Pagination
-  const paginatedAlerts = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredAlerts.slice(startIndex, startIndex + pageSize);
-  }, [filteredAlerts, currentPage, pageSize]);
-
-  // Actions
-  const handleResolveSubmit = async () => {
+  const handleResolveSubmit = useCallback(async () => {
     if (!resolvingAlert) return;
-    
-    setIsResolving(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    setAlerts(current => current.map(a => {
-      if (a.id === resolvingAlert.id) {
-        return {
-          ...a,
-          status: 'resolved',
-          resolvedAt: new Date().toISOString(),
-          resolvedBy: 'Usuario Actual',
-          resolutionNote
-        };
+    try {
+      const result = await resolveMutation.mutateAsync({
+        id: resolvingAlert.id,
+        notes: resolutionNote.trim() || undefined,
+      });
+      if (result) {
+        showToast({ message: 'Alerta resuelta con éxito', type: 'success' });
+        setResolvingAlert(null);
+        setResolutionNote('');
+      } else {
+        showToast({ message: 'No se pudo resolver la alerta', type: 'error' });
       }
-      return a;
-    }));
-    
-    showToast({ message: 'Alerta resuelta con éxito', type: 'success' });
-    setIsResolving(false);
-    setResolvingAlert(null);
-    setResolutionNote('');
-  };
+    } catch {
+      showToast({ message: 'Error al resolver la alerta', type: 'error' });
+    }
+  }, [resolvingAlert, resolutionNote, resolveMutation, showToast]);
 
-  // Render Helpers
+  const handleDismissSubmit = useCallback(async () => {
+    if (!dismissingAlert) return;
+    try {
+      const result = await dismissMutation.mutateAsync({
+        id: dismissingAlert.id,
+        notes: dismissNote.trim() || undefined,
+      });
+      if (result) {
+        showToast({ message: 'Alerta descartada correctamente', type: 'success' });
+        setDismissingAlert(null);
+        setDismissNote('');
+      } else {
+        showToast({ message: 'No se pudo descartar la alerta', type: 'error' });
+      }
+    } catch {
+      showToast({ message: 'Error al descartar la alerta', type: 'error' });
+    }
+  }, [dismissingAlert, dismissNote, dismissMutation, showToast]);
+
+  const isResolving = resolveMutation.isPending;
+  const isDismissing = dismissMutation.isPending;
+  const isLoading = listLoading;
+
   const renderType = (alert: Alert) => {
-    if (alert.type === 'low_stock') {
+    if (alert.type === 'LOW_STOCK' || alert.type === 'OUT_OF_STOCK') {
       return (
         <div className={styles.typeCell}>
           <div className={styles.iconRed}><AlertTriangle size={16} /></div>
-          <span>Stock Bajo</span>
+          <span>{alert.type === 'OUT_OF_STOCK' ? 'Sin stock' : 'Stock bajo'}</span>
         </div>
       );
     }
-    
-    // Expiration
     let iconClass = styles.iconYellow;
     let icon = <Calendar size={16} />;
-    
-    if (alert.currentValue <= 7) {
+    const days = alert.currentValue;
+    if (days <= 7) {
       iconClass = styles.iconRed;
       icon = <CalendarClock size={16} />;
-    } else if (alert.currentValue <= 15) {
+    } else if (days <= 15) {
       iconClass = styles.iconOrange;
     }
-
     return (
       <div className={styles.typeCell}>
         <div className={iconClass}>{icon}</div>
-        <span>Venc. {alert.currentValue} días</span>
+        <span>Venc. {days} días</span>
       </div>
     );
   };
 
   const renderStatus = (status: string) => {
-    if (status === 'active') {
+    if (status === 'ACTIVE') {
       return (
         <div className={styles.pulseContainer}>
           <div className={styles.pulseRing} />
@@ -122,50 +141,57 @@ export function AlertsList() {
         </div>
       );
     }
-    if (status === 'resolved') {
+    if (status === 'RESOLVED') {
       return <Badge variant="active">Resuelta</Badge>;
     }
     return <Badge variant="default">Descartada</Badge>;
   };
 
-  // Columns definition
   const columns = [
     { key: 'type', header: 'Tipo', render: renderType },
-    { 
-      key: 'product', 
+    {
+      key: 'product',
       header: 'Producto',
       render: (a: Alert) => (
         <div className={styles.productCell}>
           <span className={styles.productName}>{a.productName}</span>
           <span className={styles.productSku}>{a.productSku}</span>
         </div>
-      )
+      ),
     },
-    { 
-      key: 'currentValue', 
-      header: 'Valor Actual',
+    {
+      key: 'currentValue',
+      header: 'Valor actual',
       render: (a: Alert) => (
         <span className={styles.boldValue}>
-          {a.type === 'low_stock' ? `${a.currentValue} unid.` : `${a.currentValue} días`}
+          {a.type === 'LOW_STOCK' || a.type === 'OUT_OF_STOCK'
+            ? `${a.currentValue} unid.`
+            : `${a.currentValue} días`}
         </span>
-      )
+      ),
     },
-    { 
-      key: 'threshold', 
-      header: 'Umbral Config.',
+    {
+      key: 'threshold',
+      header: 'Umbral',
       render: (a: Alert) => (
         <span className={styles.textMid}>
-          {a.type === 'low_stock' ? `Min. ${a.threshold}` : `${a.threshold} días`}
+          {a.type === 'LOW_STOCK' || a.type === 'OUT_OF_STOCK'
+            ? `Mín. ${a.threshold}`
+            : `${a.threshold} días`}
         </span>
-      )
+      ),
     },
-    { 
-      key: 'createdAt', 
+    {
+      key: 'createdAt',
       header: 'Generación',
       render: (a: Alert) => {
         const d = new Date(a.createdAt);
-        return <span className={styles.textMid}>{d.toLocaleDateString()} {d.getHours()}:{d.getMinutes().toString().padStart(2, '0')}</span>;
-      }
+        return (
+          <span className={styles.textMid}>
+            {d.toLocaleDateString()} {d.getHours()}:{d.getMinutes().toString().padStart(2, '0')}
+          </span>
+        );
+      },
     },
     { key: 'status', header: 'Estado', render: (a: Alert) => renderStatus(a.status) },
     {
@@ -173,25 +199,35 @@ export function AlertsList() {
       header: 'Acciones',
       render: (a: Alert) => (
         <div className={styles.actionsBox}>
-          {a.status === 'active' && (
-            <Button
-              variant="secondary"
-              onClick={() => setResolvingAlert(a)}
-              className={styles.smallBtn}
-            >
-              Resolver
-            </Button>
+          {a.status === 'ACTIVE' && (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setResolvingAlert(a)}
+                className={styles.smallBtn}
+              >
+                Resolver
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setDismissingAlert(a)}
+                className={styles.smallBtn}
+              >
+                Descartar
+              </Button>
+            </>
           )}
-          <button 
-            className={styles.iconBtn} 
+          <button
+            type="button"
+            className={styles.iconBtn}
             title="Ver detalle"
             onClick={() => router.push(`/alerts/${a.id}`)}
           >
             <Eye size={18} />
           </button>
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   const emptyState = (
@@ -199,17 +235,20 @@ export function AlertsList() {
       <div className={styles.emptyIcon}>
         <ShieldCheck size={48} />
       </div>
-      <h3>Todo el inventario está en orden</h3>
+      <h3>Todo en orden</h3>
       <p>No hay alertas que coincidan con los filtros actuales.</p>
     </div>
   );
 
+  const paginationInfo: AlertsListPagination | null = pagination;
+  const totalCount = paginationInfo?.total ?? 0;
+
   return (
     <div className={styles.container}>
-      <AlertSummaryCards alerts={alerts} />
-      
+      <AlertSummaryCards summary={summary} isLoading={summaryLoading} />
+
       <div className={styles.filterBar}>
-        <AlertFilters 
+        <AlertFilters
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           statusFilter={statusFilter}
@@ -222,29 +261,43 @@ export function AlertsList() {
         </Button>
       </div>
 
-      <DataTable
-        data={paginatedAlerts}
-        columns={columns}
-        loading={isLoading}
-        emptyState={emptyState}
-      />
+      {isLoading && filteredBySearch.length === 0 ? (
+        <SkeletonTable rows={6} columns={5} />
+      ) : (
+        <>
+          <DataTable
+            data={filteredBySearch}
+            columns={columns}
+            loading={isFetching}
+            emptyState={emptyState}
+          />
+          {paginationInfo && totalCount > 0 && !searchQuery.trim() && (
+            <Pagination
+              currentPage={page}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          )}
+        </>
+      )}
 
-      <Pagination
-        currentPage={currentPage}
-        totalCount={filteredAlerts.length}
-        pageSize={pageSize}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
-      />
-
-      {/* Resolution Modal */}
+      {/* Modal Resolver */}
       <Modal
         isOpen={!!resolvingAlert}
         onClose={() => !isResolving && setResolvingAlert(null)}
-        title="Resolver Alerta"
+        title="Resolver alerta"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setResolvingAlert(null)} disabled={isResolving}>
+            <Button
+              variant="secondary"
+              onClick={() => setResolvingAlert(null)}
+              disabled={isResolving}
+            >
               Cancelar
             </Button>
             <Button onClick={handleResolveSubmit} isLoading={isResolving}>
@@ -258,20 +311,56 @@ export function AlertsList() {
             <p className={styles.modalText}>¿Confirmas la resolución de esta alerta?</p>
             <div className={styles.productAlertInfo}>
               <strong>{resolvingAlert.productName}</strong> ({resolvingAlert.productSku})
-              <br/>
+              <br />
               <span className={styles.textMid}>
-                {resolvingAlert.type === 'low_stock' 
-                  ? `Stock actual: ${resolvingAlert.currentValue} (Min: ${resolvingAlert.threshold})`
+                {resolvingAlert.type === 'LOW_STOCK' || resolvingAlert.type === 'OUT_OF_STOCK'
+                  ? `Stock actual: ${resolvingAlert.currentValue} (Mín: ${resolvingAlert.threshold})`
                   : `Vence en ${resolvingAlert.currentValue} días`}
               </span>
             </div>
-            
             <Input
-              label="Nota de resolución (Opcional)"
-              placeholder="Ej. Se reabasteció el producto o se descartó lote"
+              label="Nota de resolución (opcional)"
+              placeholder="Ej. Se reabasteció el producto"
               value={resolutionNote}
               onChange={(e) => setResolutionNote(e.target.value)}
               disabled={isResolving}
+            />
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal Descartar */}
+      <Modal
+        isOpen={!!dismissingAlert}
+        onClose={() => !isDismissing && setDismissingAlert(null)}
+        title="Descartar alerta"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setDismissingAlert(null)}
+              disabled={isDismissing}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleDismissSubmit} isLoading={isDismissing}>
+              Confirmar descarte
+            </Button>
+          </>
+        }
+      >
+        {dismissingAlert && (
+          <div className={styles.modalContent}>
+            <p className={styles.modalText}>¿Descartar esta alerta sin resolverla?</p>
+            <div className={styles.productAlertInfo}>
+              <strong>{dismissingAlert.productName}</strong> ({dismissingAlert.productSku})
+            </div>
+            <Input
+              label="Nota (opcional)"
+              placeholder="Motivo del descarte"
+              value={dismissNote}
+              onChange={(e) => setDismissNote(e.target.value)}
+              disabled={isDismissing}
             />
           </div>
         )}

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Rutas públicas que no requieren autenticación
+// Rutas públicas (sin token). /change-password requiere token.
 const PUBLIC_ROUTES = [
   '/login',
   '/recover-password',
-  '/reset-password',
+  '/reset-password', // incluye /reset-password/[token]
 ];
 
 export function middleware(request: NextRequest) {

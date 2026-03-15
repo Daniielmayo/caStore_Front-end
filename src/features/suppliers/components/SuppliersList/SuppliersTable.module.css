@@ -59,7 +59,8 @@
 }
 
 /* Tooltip style */
-.providerCell:hover .tooltip {
+.providerCell:hover .tooltip,
+.tooltipVisible {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
