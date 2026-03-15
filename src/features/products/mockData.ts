@@ -51,6 +51,7 @@ export const MOCK_PRODUCT_STATS: ProductStatsApi = {
   lowStockCount: 5,
   outOfStockCount: 3,
   expiringCount: 2,
+  totalValue: 12500000,
 };
 
 /** Genera respuesta paginada mock a partir de mockProducts y filtros. */

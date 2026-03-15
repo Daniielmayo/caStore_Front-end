@@ -1,14 +1,20 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { Info } from 'lucide-react';
+import type { AxiosError } from 'axios';
 
-import { productSchema, ProductFormData } from '../../schemas/product.schema';
-import { useCreateProduct, useUpdateProduct, useUpdateProductImage } from '../../hooks/useProducts';
+import { productSchema, type ProductFormData } from '../../schemas/product.schema';
+import {
+  useProduct,
+  useCreateProduct,
+  useUpdateProduct,
+  useUpdateProductImage,
+} from '../../hooks/useProducts';
 import { categoriesService } from '@/src/services/categories.service';
 import { locationsService } from '@/src/services/locations.service';
 import { Input } from '@/src/components/ui/Input';
@@ -18,49 +24,125 @@ import { Button } from '@/src/components/ui/Button';
 import { Switch } from '@/src/components/ui/Switch';
 import { ImageUpload } from '@/src/components/ui/ImageUpload';
 import { Badge } from '@/src/components/ui/Badge';
+import { Modal } from '@/src/components/ui/Modal';
 import { useToast } from '@/src/components/ui/Toast';
+import { useModal } from '@/src/hooks/useModal';
+import type { CategoryTreeItem } from '@/src/features/categories/types/categories.types';
+import type { LocationTreeApi } from '@/src/features/locations/types/locations.types';
 
 import styles from './ProductForm.module.css';
 
+/** Estado del formulario incluye imagen (no enviada en create/update body; se usa PATCH imagen aparte). */
+type FormState = ProductFormData & { image?: string | null };
+
 interface ProductFormProps {
-  initialData?: ProductFormData & { id?: string; sku?: string };
-  isEdit?: boolean;
+  mode: 'create' | 'edit';
+  productId?: string;
 }
 
-export function ProductForm({ initialData, isEdit }: ProductFormProps) {
+/** Aplana árbol de categorías: padres como optgroup, hijos como options. */
+function buildCategoryOptions(tree: CategoryTreeItem[]): React.ReactNode {
+  const nodes: React.ReactNode[] = [];
+  for (const node of tree) {
+    if (node.children?.length) {
+      nodes.push(
+        <optgroup key={node.id} label={node.name}>
+          {node.children.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </optgroup>
+      );
+    } else {
+      nodes.push(
+        <option key={node.id} value={node.id}>
+          {node.name}
+        </option>
+      );
+    }
+  }
+  return nodes;
+}
+
+/** Aplana árbol de ubicaciones para select: código y nombre. */
+function flattenLocations(tree: LocationTreeApi[]): { id: string; label: string }[] {
+  const out: { id: string; label: string }[] = [];
+  function walk(nodes: LocationTreeApi[]) {
+    for (const n of nodes) {
+      out.push({ id: n.id, label: `${n.code} — ${n.name}` });
+      if (n.children?.length) walk(n.children);
+    }
+  }
+  walk(tree);
+  return out;
+}
+
+interface ApiErrorBody {
+  code?: string;
+  message?: string;
+  errors?: Record<string, string[]>;
+}
+
+export function ProductForm({ mode, productId }: ProductFormProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  const { isOpen: showDiscardModal, open: openDiscardModal, close: closeDiscardModal } = useModal();
 
-  const { data: categoriesRes } = useQuery({
-    queryKey: ['categories', 'list'],
-    queryFn: () => categoriesService.getCategories({ limit: 200 }),
-  });
-  const { data: locationsRes } = useQuery({
-    queryKey: ['locations', 'list'],
-    queryFn: () => locationsService.getLocations({ page: 1, limit: 500 }),
+  const isEdit = mode === 'edit' && Boolean(productId);
+  const { productApi, isLoading: loadingProduct } = useProduct(isEdit ? productId ?? null : null, {
+    enabled: isEdit,
   });
 
-  const categories = categoriesRes?.data ?? [];
-  const locations = locationsRes?.data ?? [];
+  const { data: categoryTree } = useQuery({
+    queryKey: ['categories', 'tree'],
+    queryFn: () => categoriesService.getTree(),
+  });
+  const { data: locationTree } = useQuery({
+    queryKey: ['locations', 'tree'],
+    queryFn: () => locationsService.getTree(),
+  });
+
+  const categoryOptions = useMemo(
+    () => (categoryTree ? buildCategoryOptions(categoryTree) : null),
+    [categoryTree]
+  );
+  const locationOptions = useMemo(
+    () => (locationTree ? flattenLocations(locationTree) : []),
+    [locationTree]
+  );
 
   const createMutation = useCreateProduct({
-    onSuccess: () => {
-      showToast({ message: 'Producto creado correctamente', type: 'success' });
-      router.push('/products');
+    onSuccess: (created) => {
+      const name = created?.name;
+      showToast({ message: `Producto "${name ?? 'nuevo'}" creado correctamente.`, type: 'success' });
+      const imageUrl = getValues('image');
+      if (created?.id && imageUrl) {
+        updateImageMutation.mutate(
+          { id: created.id, imageUrl },
+          { onSettled: () => router.push('/products') }
+        );
+      } else {
+        router.push('/products');
+      }
     },
-    onError: () => {
-      showToast({ message: 'Error al crear el producto. Intenta de nuevo.', type: 'error' });
-    },
+    onError: (err, _variables, _context) => handleApiError(err, setError, showToast, router),
   });
 
   const updateMutation = useUpdateProduct({
     onSuccess: () => {
-      showToast({ message: 'Producto actualizado correctamente', type: 'success' });
-      router.push('/products');
+      showToast({ message: 'Producto actualizado correctamente.', type: 'success' });
+      const imageUrl = getValues('image');
+      if (isEdit && productId && imageUrl && imageUrl !== productApi?.imageUrl) {
+        updateImageMutation.mutate(
+          { id: productId, imageUrl },
+          { onSettled: () => router.push('/products') }
+        );
+      } else {
+        router.push('/products');
+      }
     },
-    onError: () => {
-      showToast({ message: 'Error al actualizar el producto. Intenta de nuevo.', type: 'error' });
-    },
+    onError: (err, _variables, _context) => handleApiError(err, setError, showToast, router),
   });
 
   const updateImageMutation = useUpdateProductImage();
@@ -71,85 +153,114 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
     control,
     watch,
     setValue,
-    formState: { errors },
-  } = useForm<ProductFormData>({
-    resolver: zodResolver(productSchema) as Resolver<ProductFormData>,
-    defaultValues: initialData ?? {
+    setError,
+    getValues,
+    formState: { errors, isDirty },
+  } = useForm<FormState>({
+    resolver: zodResolver(productSchema) as Resolver<FormState>,
+    defaultValues: {
       name: '',
       description: '',
       price: 0,
+      currentStock: 0,
+      minStock: 0,
       categoryId: '',
       locationId: '',
-      stock: 0,
-      minStock: 0,
-      hasExpiration: false,
-      expirationDate: '',
+      hasExpiry: false,
+      expiryDate: '',
       image: null,
     },
   });
 
-  useEffect(() => {
-    if (initialData) {
-      setValue('name', initialData.name);
-      setValue('description', initialData.description ?? '');
-      setValue('price', initialData.price);
-      setValue('categoryId', initialData.categoryId ?? '');
-      setValue('locationId', initialData.locationId ?? '');
-      setValue('stock', initialData.stock ?? 0);
-      setValue('minStock', initialData.minStock ?? 0);
-      setValue('hasExpiration', initialData.hasExpiration ?? false);
-      setValue('expirationDate', initialData.expirationDate ?? '');
-      setValue('image', initialData.image ?? null);
-    }
-  }, [initialData, setValue]);
+  const hasExpiry = watch('hasExpiry');
 
-  const hasExpiration = watch('hasExpiration');
+  useEffect(() => {
+    if (isEdit && productId && !loadingProduct && !productApi) {
+      showToast({ message: 'Producto no encontrado.', type: 'error' });
+      router.push('/products');
+    }
+  }, [isEdit, productId, loadingProduct, productApi, showToast, router]);
+
+  useEffect(() => {
+    if (!isEdit || !productApi) return;
+    setValue('name', productApi.name);
+    setValue('description', productApi.description ?? '');
+    setValue('price', productApi.price);
+    setValue('currentStock', productApi.currentStock);
+    setValue('minStock', productApi.minStock);
+    setValue('categoryId', productApi.categoryId ?? '');
+    setValue('locationId', productApi.locationId ?? '');
+    setValue('hasExpiry', productApi.hasExpiry ?? false);
+    setValue('expiryDate', productApi.expiryDate ?? '');
+    setValue('image', productApi.imageUrl ?? null);
+  }, [isEdit, productApi, setValue]);
+
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
-  const onSubmit = async (data: ProductFormData) => {
-    if (isEdit && initialData?.id) {
-      const dto = {
-        name: data.name,
-        description: data.description || undefined,
-        price: data.price,
-        minStock: data.minStock,
-        categoryId: data.categoryId,
-        locationId: data.locationId || undefined,
-        hasExpiry: data.hasExpiration,
-        expiryDate: data.hasExpiration ? data.expirationDate || undefined : undefined,
-      };
-      updateMutation.mutate({ id: initialData.id, dto });
-      if (data.image && data.image !== (initialData as { image?: string | null }).image) {
-        updateImageMutation.mutate({ id: initialData.id, imageUrl: data.image });
-      }
+  const onSubmit = (data: FormState) => {
+    if (isEdit && productId) {
+      updateMutation.mutate({
+        id: productId,
+        dto: {
+          name: data.name,
+          description: data.description || undefined,
+          price: data.price,
+          minStock: data.minStock,
+          categoryId: data.categoryId,
+          locationId: data.locationId || undefined,
+          hasExpiry: data.hasExpiry,
+          expiryDate: data.hasExpiry ? data.expiryDate || undefined : undefined,
+        },
+      });
     } else {
-      const dto = {
+      createMutation.mutate({
         name: data.name,
         description: data.description || undefined,
         price: data.price,
-        currentStock: data.stock ?? 0,
+        currentStock: data.currentStock ?? 0,
         minStock: data.minStock,
         categoryId: data.categoryId,
         locationId: data.locationId || undefined,
-        hasExpiry: data.hasExpiration,
-        expiryDate: data.hasExpiration ? data.expirationDate || undefined : undefined,
-      };
-      createMutation.mutate(dto);
+        hasExpiry: data.hasExpiry,
+        expiryDate: data.hasExpiry ? data.expiryDate || undefined : undefined,
+      });
     }
   };
 
+  const handleCancel = () => {
+    if (isDirty) openDiscardModal();
+    else router.push('/products');
+  };
+
+  const confirmDiscard = () => {
+    closeDiscardModal();
+    router.push('/products');
+  };
+
+  if (isEdit && loadingProduct && !productApi) {
+    return (
+      <div className={styles.form}>
+        <p className={styles.loadingText}>Cargando producto…</p>
+      </div>
+    );
+  }
+
+  if (isEdit && productId && !loadingProduct && !productApi) {
+    return null; // Redirección y toast se manejan en useEffect
+  }
+
   return (
     <form className={styles.form} onSubmit={handleSubmit(onSubmit)}>
-      {isEdit && initialData?.sku && (
+      {isEdit && productApi && (
         <div className={styles.skuBanner}>
           <div className={styles.skuBannerContent}>
             <span className={styles.skuLabel}>SKU:</span>
             <Badge variant="default" className={styles.skuBadge}>
-              {initialData.sku}
+              {productApi.sku}
             </Badge>
             <span className={styles.skuHint}>
-              <Info size={14} className={styles.infoIcon} />
-              Generado automáticamente por el backend. No editable.
+              <Info size={14} className={styles.infoIcon} aria-hidden />
+              Generado automáticamente por el sistema. No editable.
             </span>
           </div>
         </div>
@@ -197,7 +308,11 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
                   />
                 )}
               />
-              <p className={styles.imageHint}>URL o archivo. Se guarda por PATCH /products/:id/image.</p>
+              <p className={styles.imageHint}>
+                {mode === 'create'
+                  ? 'Puedes subir una imagen por URL o archivo. Se guardará al crear.'
+                  : 'En edición se muestra la imagen actual. Puedes reemplazarla.'}
+              </p>
             </div>
           </div>
         </div>
@@ -211,11 +326,7 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
               error={errors.categoryId?.message}
             >
               <option value="">Selecciona una categoría</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.parentName ? `${cat.parentName} › ` : ''}{cat.name}
-                </option>
-              ))}
+              {categoryOptions}
             </Select>
 
             <Select
@@ -224,9 +335,9 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
               error={errors.locationId?.message}
             >
               <option value="">Selecciona la ubicación (opcional)</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
+              {locationOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
                 </option>
               ))}
             </Select>
@@ -240,9 +351,13 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
               <Input
                 label="Stock actual"
                 type="number"
-                hint="Cantidad física disponible ahora mismo"
-                {...register('stock')}
-                error={errors.stock?.message}
+                hint={
+                  isEdit
+                    ? 'Solo lectura. El stock se modifica mediante movimientos de inventario.'
+                    : 'Cantidad física disponible al crear el producto.'
+                }
+                {...register('currentStock')}
+                error={errors.currentStock?.message}
                 disabled={isEdit}
               />
               <Input
@@ -257,23 +372,23 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
             <div className={styles.toggleField}>
               <div className={styles.toggleText}>
                 <span className={styles.toggleLabel}>Fecha de vencimiento</span>
-                <span className={styles.toggleHint}>Genera alertas a los 30, 15 y 7 días</span>
+                <span className={styles.toggleHint}>Activa para productos con fecha de vencimiento</span>
               </div>
               <Controller
                 control={control}
-                name="hasExpiration"
+                name="hasExpiry"
                 render={({ field }) => (
                   <Switch checked={field.value} onChange={field.onChange} />
                 )}
               />
             </div>
 
-            {hasExpiration && (
+            {hasExpiry && (
               <Input
                 label="Fecha de vencimiento"
                 type="date"
-                {...register('expirationDate')}
-                error={errors.expirationDate?.message}
+                {...register('expiryDate')}
+                error={errors.expiryDate?.message}
               />
             )}
           </div>
@@ -281,18 +396,78 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
       </div>
 
       <div className={styles.footer}>
-        <Button
-          variant="secondary"
-          type="button"
-          onClick={() => router.push('/products')}
-          disabled={isSubmitting}
-        >
+        <Button variant="secondary" type="button" onClick={handleCancel} disabled={isSubmitting}>
           Cancelar
         </Button>
         <Button variant="primary" type="submit" isLoading={isSubmitting}>
           {isEdit ? 'Guardar cambios' : 'Guardar producto'}
         </Button>
       </div>
+
+      <Modal
+        isOpen={showDiscardModal}
+        onClose={closeDiscardModal}
+        title="Descartar cambios"
+        variant="warning"
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeDiscardModal}>
+              Seguir editando
+            </Button>
+            <Button variant="primary" onClick={confirmDiscard}>
+              Descartar
+            </Button>
+          </>
+        }
+      >
+        <p>¿Estás seguro de que deseas descartar los cambios? No se guardarán las modificaciones.</p>
+      </Modal>
     </form>
   );
+}
+
+function handleApiError(
+  err: unknown,
+  setError: (field: keyof FormState, opts: { message: string }) => void,
+  showToast: (opts: { message: string; type: 'error' }) => void,
+  router: ReturnType<typeof useRouter>
+) {
+  const axiosError = err as AxiosError<ApiErrorBody>;
+  const body = axiosError.response?.data;
+  const code = body?.code;
+  const message = body?.message ?? 'Ha ocurrido un error. Intenta de nuevo.';
+
+  if (code === 'VALIDATION_ERROR' && body?.errors) {
+    const errors = body.errors as Record<string, string[]>;
+    for (const [field, messages] of Object.entries(errors)) {
+      const msg = Array.isArray(messages) ? messages[0] : String(messages);
+      setError(field as keyof FormState, { message: msg });
+    }
+    return;
+  }
+
+  if (code === 'CONFLICT') {
+    if (message.toLowerCase().includes('nombre')) setError('name', { message });
+    else if (message.toLowerCase().includes('sku')) setError('name', { message });
+    else showToast({ message, type: 'error' });
+    return;
+  }
+
+  if (code === 'NOT_FOUND') {
+    showToast({ message: 'Recurso no encontrado.', type: 'error' });
+    router.push('/products');
+    return;
+  }
+
+  if (code === 'BUSINESS_ERROR') {
+    showToast({ message, type: 'error' });
+    return;
+  }
+
+  if (axiosError.response?.status === 500 || code === 'INTERNAL_ERROR') {
+    showToast({ message: 'Error del servidor. Intenta más tarde.', type: 'error' });
+    return;
+  }
+
+  showToast({ message, type: 'error' });
 }

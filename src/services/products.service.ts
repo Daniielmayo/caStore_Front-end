@@ -12,17 +12,22 @@ import type {
 
 const BASE = '/products';
 
-function getData<T>(response: { data?: ApiSuccessResponse<T> | { data: T; pagination?: unknown } }): T | null {
+/** Backend responde { success, message, data }. Axios devuelve { data: body }. */
+function getData<T>(response: { data?: ApiSuccessResponse<T> }): T | null {
   if (!response?.data) return null;
-  const d = response.data as ApiSuccessResponse<T> & { pagination?: unknown };
+  const d = response.data as ApiSuccessResponse<T>;
   return d.data ?? null;
 }
 
+/** Backend paginado responde { success, message, data, pagination }. */
 function getPaginated(
   response: { data?: { data?: ProductApi[]; pagination?: PaginatedProductsResponse['pagination'] } }
 ): PaginatedProductsResponse | null {
   if (!response?.data) return null;
-  const body = response.data as { data?: ProductApi[]; pagination?: PaginatedProductsResponse['pagination'] };
+  const body = response.data as {
+    data?: ProductApi[];
+    pagination?: PaginatedProductsResponse['pagination'];
+  };
   if (!body.data || !body.pagination) return null;
   return { data: body.data, pagination: body.pagination };
 }

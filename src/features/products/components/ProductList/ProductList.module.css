@@ -1,49 +1,20 @@
 .statsSection {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
 }
 
-.statCard {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
+@media (max-width: 1024px) {
+  .statsSection {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-.statCard:hover {
-  border-color: var(--color-primary-soft);
-}
-
-.statIconWrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-}
-
-.statContent {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.statLabel {
-  font-size: var(--text-sm);
-  color: var(--color-mid);
-}
-
-.statValue {
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--color-dark);
+@media (max-width: 640px) {
+  .statsSection {
+    grid-template-columns: 1fr;
+  }
 }
 
 .controls {
@@ -146,9 +117,24 @@
   gap: var(--space-2);
 }
 
-.stockNum {
+.stockNum,
+.stockZero,
+.stockLow,
+.stockOk {
   font-weight: 500;
   min-width: 24px;
+}
+
+.stockZero {
+  color: var(--color-error);
+}
+
+.stockLow {
+  color: var(--color-warning);
+}
+
+.stockOk {
+  color: var(--color-dark-2);
 }
 
 .actionsCell {

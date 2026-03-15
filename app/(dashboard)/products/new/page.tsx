@@ -7,7 +7,7 @@ export default function NewProductPage() {
       title="Agregar producto"
       // Subtitle can be omitted if the design doesn't call for it specifically on this page.
     >
-      <ProductForm />
+      <ProductForm mode="create" />
     </PageWrapper>
   );
 }

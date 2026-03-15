@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { UploadCloud, X } from 'lucide-react';
 import styles from './ImageUpload.module.css';
@@ -12,8 +12,12 @@ interface ImageUploadProps {
 
 export function ImageUpload({ label, error, onChange, value }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(value || null);
+  const [preview, setPreview] = useState<string | null>(value ?? null);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreview(value ?? null);
+  }, [value]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

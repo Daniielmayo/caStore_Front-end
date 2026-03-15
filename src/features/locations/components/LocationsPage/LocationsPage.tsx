@@ -6,13 +6,14 @@ import {
   LayoutList,
   Plus,
   Warehouse,
-  Box,
-  CheckCircle2,
+  Package,
+  CheckSquare,
   Search,
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { Location } from '../../types/locations.types';
 import { PageWrapper } from '@/src/components/layout/PageWrapper';
+import { KPICard } from '@/src/features/dashboard/components/KPICard';
 import { Button } from '@/src/components/ui/Button';
 import { Select } from '@/src/components/ui/Select';
 import { LocationMap } from '../LocationMap/LocationMap';
@@ -97,47 +98,36 @@ export default function LocationsPage() {
         </Button>
       </div>
 
-      <div className={styles.summarySection}>
-        <div className={styles.summaryCard}>
-          <div className={clsx(styles.iconWrapper, styles.orange)}>
-            <MapIcon size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.total}</span>
-            <span className={styles.statLabel}>Ubicaciones</span>
-          </div>
-        </div>
-
-        <div className={styles.summaryCard}>
-          <div className={clsx(styles.iconWrapper, styles.blue)}>
-            <Warehouse size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.capacity}</span>
-            <span className={styles.statLabel}>Capacidad total</span>
-          </div>
-        </div>
-
-        <div className={styles.summaryCard}>
-          <div className={clsx(styles.iconWrapper, styles.green)}>
-            <Box size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.withProducts}</span>
-            <span className={styles.statLabel}>Ocupadas</span>
-          </div>
-        </div>
-
-        <div className={styles.summaryCard}>
-          <div className={clsx(styles.iconWrapper, styles.gray)}>
-            <CheckCircle2 size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.available}</span>
-            <span className={styles.statLabel}>Disponibles</span>
-          </div>
-        </div>
-      </div>
+      <section className={styles.summarySection} aria-label="Resumen de ubicaciones">
+        <KPICard
+          title="Total ubicaciones"
+          value={stats.total}
+          icon={<MapIcon size={22} />}
+          iconColor="var(--color-primary)"
+          iconBg="var(--color-primary-soft)"
+        />
+        <KPICard
+          title="Capacidad total del almacén"
+          value={stats.capacity}
+          icon={<Warehouse size={22} />}
+          iconColor="var(--color-info)"
+          iconBg="var(--color-info-bg)"
+        />
+        <KPICard
+          title="Ubicaciones con productos"
+          value={stats.withProducts}
+          icon={<Package size={22} />}
+          iconColor="var(--color-success)"
+          iconBg="var(--color-success-bg)"
+        />
+        <KPICard
+          title="Ubicaciones disponibles"
+          value={stats.available}
+          icon={<CheckSquare size={22} />}
+          iconColor="var(--color-mid)"
+          iconBg="var(--color-surface-alt)"
+        />
+      </section>
 
       <div className={styles.toolbar}>
         <div className={styles.filters}>

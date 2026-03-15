@@ -3,8 +3,19 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Edit2, AlertCircle, Inbox, Package, AlertTriangle, Archive } from 'lucide-react';
+import {
+  Search,
+  Plus,
+  Edit2,
+  AlertCircle,
+  Package,
+  AlertTriangle,
+  PackageX,
+  DollarSign,
+} from 'lucide-react';
+
 import { PageWrapper } from '@/src/components/layout/PageWrapper';
+import { KPICard } from '@/src/features/dashboard/components/KPICard';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Badge } from '@/src/components/ui/Badge';
@@ -13,45 +24,81 @@ import { Modal } from '@/src/components/ui/Modal';
 import { useToast } from '@/src/components/ui/Toast';
 import { DataTable } from '@/src/components/tables/DataTable';
 import { Pagination } from '@/src/components/tables/Pagination';
-import { useDebounce } from '@/src/hooks/useDebounce';
-import { SkeletonGrid } from '@/src/components/common/Skeleton/SkeletonGrid';
+import { EmptyState } from '@/src/components/common/EmptyState/EmptyState';
 import { SkeletonTable } from '@/src/components/common/Skeleton/SkeletonTable';
 import { MockWarning } from '@/src/components/common/MockWarning/MockWarning';
+import { useDebounce } from '@/src/hooks/useDebounce';
+import { useAuth } from '@/src/hooks/useAuth';
+import { formatCOP, formatDate } from '@/src/utils/format';
+import { useQuery } from '@tanstack/react-query';
+import { categoriesService } from '@/src/services/categories.service';
+
 import { useProductsList, useProductStats, useUpdateProductStatus } from '../../hooks/useProducts';
 import type { Product } from '../../mockData';
 import type { ProductStatus } from '../../types/products.types';
+import type { CategoryTreeItem } from '@/src/features/categories/types/categories.types';
+
 import styles from './ProductList.module.css';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
+/** Aplana el árbol de categorías para un select (padre › hijo). */
+function flattenCategoriesForSelect(tree: CategoryTreeItem[]): { id: string; label: string }[] {
+  const out: { id: string; label: string }[] = [];
+  function walk(nodes: CategoryTreeItem[], parentName?: string) {
+    for (const node of nodes) {
+      const label = parentName ? `${parentName} › ${node.name}` : node.name;
+      out.push({ id: node.id, label });
+      if (node.children?.length) walk(node.children, node.name);
+    }
+  }
+  walk(tree);
+  return out;
+}
+
 export default function ProductList() {
   const router = useRouter();
   const { showToast } = useToast();
+  const { canCreate } = useAuth();
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'discontinued'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED'>('all');
+  const [categoryId, setCategoryId] = useState<string>('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [productToToggle, setProductToToggle] = useState<Product | null>(null);
 
-  const apiStatus: ProductStatus | 'all' = statusFilter === 'all' ? 'all' : statusFilter.toUpperCase() as ProductStatus;
+  const { data: categoryTree } = useQuery({
+    queryKey: ['categories', 'tree'],
+    queryFn: () => categoriesService.getTree(),
+  });
+  const categoryOptions = useMemo(
+    () => (categoryTree ? flattenCategoriesForSelect(categoryTree) : []),
+    [categoryTree]
+  );
 
-  const { data, pagination, isLoading, isFetching, error, refetch } = useProductsList({
+  const { data, pagination, isLoading, isFetching, isUsingMock, refetch } = useProductsList({
     page,
     limit: pageSize,
     search: debouncedSearch || undefined,
-    status: apiStatus,
+    status: statusFilter === 'all' ? 'all' : statusFilter,
+    categoryId: categoryId || undefined,
     lowStock: lowStockOnly || undefined,
   });
 
-  const { stats, isLoading: statsLoading, isUsingMock: statsMock } = useProductStats();
+  const { stats, isLoading: statsLoading } = useProductStats();
 
   const updateStatusMutation = useUpdateProductStatus({
-    onSuccess: (updated, variables) => {
-      const newStatus = variables.status === 'ACTIVE' ? 'activado' : variables.status === 'INACTIVE' ? 'desactivado' : 'marcado como descontinuado';
-      showToast({ message: `Producto ${newStatus} correctamente.`, type: 'success' });
+    onSuccess: (_data, variables) => {
+      const msg =
+        variables.status === 'ACTIVE'
+          ? 'Producto activado correctamente.'
+          : variables.status === 'INACTIVE'
+            ? 'Producto desactivado correctamente.'
+            : 'Producto marcado como descontinuado correctamente.';
+      showToast({ message: msg, type: 'success' });
       setProductToToggle(null);
     },
     onError: () => {
@@ -66,27 +113,16 @@ export default function ProductList() {
   const confirmToggle = () => {
     if (!productToToggle) return;
     if (productToToggle.status === 'discontinued') {
-      showToast({ message: 'No se puede cambiar el estado de un producto descontinuado.', type: 'error' });
+      showToast({
+        message: 'No se puede cambiar el estado de un producto descontinuado.',
+        type: 'error',
+      });
+      setProductToToggle(null);
       return;
     }
-    const newStatus: ProductStatus = productToToggle.status === 'active' ? 'INACTIVE' : 'ACTIVE';
+    const newStatus: ProductStatus =
+      productToToggle.status === 'active' ? 'INACTIVE' : 'ACTIVE';
     updateStatusMutation.mutate({ id: productToToggle.id, status: newStatus });
-  };
-
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-    }).format(val);
-  };
-
-  const formatDate = (isoStr: string) => {
-    const d = new Date(isoStr);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
   };
 
   const columns = [
@@ -100,7 +136,7 @@ export default function ProductList() {
       header: 'Producto',
       render: (item: Product) => (
         <div className={styles.productCell}>
-          <img src={item.image} alt={item.name} className={styles.productImg} />
+          <img src={item.image} alt="" className={styles.productImg} />
           <span className={styles.productName}>{item.name}</span>
         </div>
       ),
@@ -110,7 +146,8 @@ export default function ProductList() {
       header: 'Categoría',
       render: (item: Product) => (
         <span className={styles.categoryText}>
-          {item.parentCategoryName ? `${item.parentCategoryName} › ` : ''}{item.categoryName}
+          {item.parentCategoryName ? `${item.parentCategoryName} › ` : ''}
+          {item.categoryName}
         </span>
       ),
     },
@@ -122,7 +159,7 @@ export default function ProductList() {
     {
       key: 'price',
       header: 'Precio',
-      render: (item: Product) => formatCurrency(item.price),
+      render: (item: Product) => formatCOP(item.price),
     },
     {
       key: 'stock',
@@ -131,7 +168,7 @@ export default function ProductList() {
         if (item.stock === 0) {
           return (
             <div className={styles.stockCell}>
-              <span className={styles.stockNum}>{item.stock}</span>
+              <span className={styles.stockZero}>{item.stock}</span>
               <Badge variant="inactive">Sin stock</Badge>
             </div>
           );
@@ -139,12 +176,12 @@ export default function ProductList() {
         if (item.stock < item.minStock) {
           return (
             <div className={styles.stockCell}>
-              <span className={styles.stockNum}>{item.stock}</span>
+              <span className={styles.stockLow}>{item.stock}</span>
               <Badge variant="warning">Stock bajo</Badge>
             </div>
           );
         }
-        return <span className={styles.stockNum}>{item.stock}</span>;
+        return <span className={styles.stockOk}>{item.stock}</span>;
       },
     },
     {
@@ -173,82 +210,69 @@ export default function ProductList() {
     },
   ];
 
-  const emptyState = (
-    <div className={styles.emptyContent}>
-      <div className={styles.emptyIcon}>
-        <Inbox size={48} />
-      </div>
-      <h3>Sin productos registrados</h3>
-      <p>Aún no hay productos en el inventario o no coinciden con la búsqueda.</p>
-      <Link href="/products/new" passHref legacyBehavior>
-        <Button variant="primary" style={{ marginTop: '16px' }}>
-          Agregar producto
-        </Button>
-      </Link>
-    </div>
-  );
-
   const totalCount = pagination?.total ?? 0;
+  const emptyStateNode = (
+    <EmptyState
+      title="Sin productos registrados"
+      message="Aún no hay productos en el inventario o no coinciden con la búsqueda."
+      action={
+        canCreate('products')
+          ? { label: 'Agregar producto', onClick: () => router.push('/products/new') }
+          : undefined
+      }
+    />
+  );
 
   return (
     <PageWrapper
       title="Gestión de Productos"
       subtitle="Administra el inventario de repuestos y accesorios automotrices."
       actions={
-        <Link href="/products/new" passHref legacyBehavior>
-          <Button variant="primary">
-            <Plus size={16} />
-            Agregar producto
-          </Button>
-        </Link>
+        canCreate('products') ? (
+          <Link href="/products/new" passHref legacyBehavior>
+            <Button variant="primary">
+              <Plus size={16} />
+              Agregar producto
+            </Button>
+          </Link>
+        ) : null
       }
     >
-      {statsMock && <MockWarning />}
+      {isUsingMock && <MockWarning />}
 
-      {/* Tarjetas de estadísticas */}
-      <section className={styles.statsSection}>
-        {statsLoading ? (
-          <SkeletonGrid count={4} />
-        ) : (
-          <>
-            <div className={styles.statCard} onClick={() => router.push('/products')}>
-              <div className={styles.statIconWrap} style={{ backgroundColor: 'var(--color-primary-soft)', color: 'var(--color-primary)' }}>
-                <Package size={22} />
-              </div>
-              <div className={styles.statContent}>
-                <span className={styles.statLabel}>Activos</span>
-                <span className={styles.statValue}>{stats.totalActive}</span>
-              </div>
-            </div>
-            <div className={styles.statCard}>
-              <div className={styles.statIconWrap} style={{ backgroundColor: '#FEE2E2', color: 'var(--color-error)' }}>
-                <AlertTriangle size={22} />
-              </div>
-              <div className={styles.statContent}>
-                <span className={styles.statLabel}>Stock bajo</span>
-                <span className={styles.statValue}>{stats.lowStockCount}</span>
-              </div>
-            </div>
-            <div className={styles.statCard}>
-              <div className={styles.statIconWrap} style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
-                <AlertCircle size={22} />
-              </div>
-              <div className={styles.statContent}>
-                <span className={styles.statLabel}>Sin stock</span>
-                <span className={styles.statValue}>{stats.outOfStockCount}</span>
-              </div>
-            </div>
-            <div className={styles.statCard}>
-              <div className={styles.statIconWrap} style={{ backgroundColor: '#E5E7EB', color: '#6B7280' }}>
-                <Archive size={22} />
-              </div>
-              <div className={styles.statContent}>
-                <span className={styles.statLabel}>Descontinuados</span>
-                <span className={styles.statValue}>{stats.totalDiscontinued}</span>
-              </div>
-            </div>
-          </>
-        )}
+      <section className={styles.statsSection} aria-label="Estadísticas de productos">
+        <KPICard
+          title="Total productos activos"
+          value={stats.totalActive}
+          icon={<Package size={22} />}
+          iconColor="var(--color-primary)"
+          iconBg="var(--color-primary-soft)"
+          isLoading={statsLoading}
+        />
+        <KPICard
+          title="Productos sin stock"
+          value={stats.outOfStockCount}
+          icon={<PackageX size={22} />}
+          iconColor="var(--color-error)"
+          iconBg="var(--color-error-bg)"
+          isLoading={statsLoading}
+        />
+        <KPICard
+          title="Stock bajo"
+          value={stats.lowStockCount}
+          icon={<AlertTriangle size={22} />}
+          iconColor="var(--color-warning)"
+          iconBg="var(--color-warning-bg)"
+          isLoading={statsLoading}
+        />
+        <KPICard
+          title="Valor total del inventario"
+          value={stats.totalValue != null ? formatCOP(stats.totalValue) : '—'}
+          icon={<DollarSign size={22} />}
+          iconColor="var(--color-success)"
+          iconBg="var(--color-success-bg)"
+          isLoading={statsLoading}
+        />
       </section>
 
       <div className={styles.controls}>
@@ -261,6 +285,36 @@ export default function ProductList() {
           />
         </div>
         <div className={styles.filtersWrap}>
+          <select
+            className={styles.statusSelect}
+            value={categoryId}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              setPage(1);
+            }}
+            aria-label="Filtrar por categoría"
+          >
+            <option value="">Todas las categorías</option>
+            {categoryOptions.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className={styles.statusSelect}
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as typeof statusFilter);
+              setPage(1);
+            }}
+            aria-label="Filtrar por estado"
+          >
+            <option value="all">Todos los estados</option>
+            <option value="ACTIVE">Activo</option>
+            <option value="INACTIVE">Inactivo</option>
+            <option value="DISCONTINUED">Descontinuado</option>
+          </select>
           <label className={styles.checkboxLabel}>
             <input
               type="checkbox"
@@ -272,33 +326,24 @@ export default function ProductList() {
             />
             Stock bajo
           </label>
-          <select
-            className={styles.statusSelect}
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value as typeof statusFilter);
-              setPage(1);
-            }}
-          >
-            <option value="all">Todos los estados</option>
-            <option value="active">Activo</option>
-            <option value="inactive">Inactivo</option>
-            <option value="discontinued">Descontinuado</option>
-          </select>
           <span className={styles.resultsCount}>
-            {pagination ? `${totalCount} resultados` : (isLoading ? '...' : '0 resultados')}
+            {pagination
+              ? `Mostrando ${pagination.from}-${pagination.to} de ${totalCount} productos`
+              : isLoading
+                ? '...'
+                : '0 productos'}
           </span>
         </div>
       </div>
 
-      {isLoading && !data.length ? (
+      {isLoading && data.length === 0 ? (
         <SkeletonTable rows={6} columns={8} />
       ) : (
         <DataTable
           columns={columns}
           data={data}
           loading={isFetching}
-          emptyState={emptyState}
+          emptyState={emptyStateNode}
         />
       )}
 
@@ -309,6 +354,7 @@ export default function ProductList() {
           totalCount={totalCount}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
         />
       )}
 
@@ -316,6 +362,7 @@ export default function ProductList() {
         isOpen={!!productToToggle}
         onClose={() => setProductToToggle(null)}
         title="Confirmar cambio de estado"
+        variant="warning"
         footer={
           <>
             <Button variant="secondary" onClick={() => setProductToToggle(null)}>
@@ -325,6 +372,7 @@ export default function ProductList() {
               variant="primary"
               onClick={confirmToggle}
               disabled={updateStatusMutation.isPending}
+              isLoading={updateStatusMutation.isPending}
             >
               Confirmar
             </Button>
@@ -332,7 +380,7 @@ export default function ProductList() {
         }
       >
         <div className={styles.modalContent}>
-          <AlertCircle size={24} className={styles.modalIcon} />
+          <AlertCircle size={24} className={styles.modalIcon} aria-hidden />
           <p>
             ¿Estás seguro de que deseas{' '}
             <strong>

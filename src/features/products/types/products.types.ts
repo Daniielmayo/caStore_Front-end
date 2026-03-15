@@ -32,6 +32,8 @@ export interface ProductStatsApi {
   lowStockCount: number;
   outOfStockCount: number;
   expiringCount: number;
+  /** Valor total del inventario en COP (si el backend lo expone). */
+  totalValue?: number;
 }
 
 export interface GetProductsParams {
